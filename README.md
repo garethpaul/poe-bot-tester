@@ -85,9 +85,3 @@ When the required SDK or runtime is unavailable, use static checks and source re
 ## Contributing
 
 Keep changes small and tied to the project that is already present in this repository. For code changes, document the toolchain used, avoid committing generated dependency directories or local configuration, and update this README when setup or verification steps change.
-
-## Existing Project Notes
-
-Prior README summary:
-
-> Poe Bot Tester A comprehensive Next.js application for testing and analyzing bots on the Poe.com platform. This tool provides detailed analysis of bot performance, capabilities, and user experience across multiple categories. Features 🔍 Comprehensive Bot Analysis - **Branding & Identity**: Analyze bot name consistency, profile picture quality, brand alignment, and verification status

@@ -90,4 +90,4 @@ Keep changes small and tied to the project that is already present in this repos
 
 Prior README summary:
 
-> Poe Bot Tester <!-- README-OVERVIEW-IMAGE --> A comprehensive Next.js application for testing and analyzing bots on the Poe.com platform. This tool provides detailed analysis of bot performance, capabilities, and user experience across multiple categories. Features 🔍 Comprehensive Bot Analysis - **Branding & Identity**: Analyze bot name consistency, profile picture quality, brand alignment, and verification status
+> Poe Bot Tester A comprehensive Next.js application for testing and analyzing bots on the Poe.com platform. This tool provides detailed analysis of bot performance, capabilities, and user experience across multiple categories. Features 🔍 Comprehensive Bot Analysis - **Branding & Identity**: Analyze bot name consistency, profile picture quality, brand alignment, and verification status

@@ -36,6 +36,11 @@ Contribution rules:
 
 ## Security And Responsible Use
 
+Canonical security policy and reporting:
+
+- [`SECURITY.md`](SECURITY.md)
+
+
 The app may handle API keys, uploaded test files, and bot metadata. It should
 avoid persisting secrets, should not send test files anywhere except the
 intended Poe workflow, and should clearly separate public profile scraping from

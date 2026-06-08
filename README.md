@@ -84,6 +84,11 @@ When the required SDK or runtime is unavailable, use static checks and source re
 
 - See `SECURITY.md` for vulnerability reporting and safe research guidance.
 - See `VISION.md` for project direction and contribution guardrails.
+- See `CHANGES.md` for maintenance history.
+- See `docs/plans/2026-06-08-api-route-validation-tests.md` for App Router
+  request-validation test coverage.
+- See `docs/plans/2026-06-08-analyze-bot-helper-tests.md` for deterministic
+  analyzer helper tests.
 
 ## Contributing
 

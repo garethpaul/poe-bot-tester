@@ -29,7 +29,6 @@ that can be exercised without live Poe access or a browser runtime.
 
 ## Follow-Up Candidates
 
-- Add API route request-validation tests with mocked `fetch`.
 - Add score aggregation tests for full `BotScorecard` output.
 - Share parsing/scoring helpers with the chunked and streaming analyzers to
   reduce duplicated logic.

@@ -47,3 +47,6 @@ authenticated API testing.
 - Hidden telemetry about tested bots
 - Scoring changes without explanations and tests
 - Large fixture additions without a clear test need
+
+This list is a roadmap guardrail, not a permanent rule.
+Strong user demand and strong technical rationale can change it.

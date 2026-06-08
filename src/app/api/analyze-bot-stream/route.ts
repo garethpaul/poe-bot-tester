@@ -1,5 +1,10 @@
 import { NextRequest } from 'next/server';
 
+import {
+  INVALID_POE_BOT_NAME_ERROR,
+  normalizePoeBotName,
+} from '../poe-bot-name';
+
 interface ProgressUpdate {
   type: 'progress' | 'test_start' | 'test_complete' | 'category_start' | 'category_complete' | 'complete' | 'error';
   category?: string;
@@ -20,10 +25,15 @@ async function sendProgress(controller: ReadableStreamDefaultController<Uint8Arr
 }
 
 export async function POST(request: NextRequest) {
-  const { botName, apiKey } = await request.json();
+  const { botName: rawBotName, apiKey } = await request.json();
 
-  if (!botName || !apiKey) {
+  if (!rawBotName || !apiKey) {
     return new Response('Bot name and API key are required', { status: 400 });
+  }
+
+  const botName = normalizePoeBotName(rawBotName);
+  if (!botName) {
+    return new Response(INVALID_POE_BOT_NAME_ERROR, { status: 400 });
   }
 
   const stream = new ReadableStream({

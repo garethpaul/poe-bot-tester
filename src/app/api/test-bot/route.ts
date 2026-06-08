@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+import {
+  INVALID_POE_BOT_NAME_ERROR,
+  normalizePoeBotName,
+} from '../poe-bot-name';
+
 export const runtime = 'edge';
 
 interface TestBotRequest {
@@ -9,11 +14,19 @@ interface TestBotRequest {
 
 export async function POST(request: NextRequest) {
   try {
-    const { botName, prompt }: TestBotRequest = await request.json();
+    const { botName: rawBotName, prompt }: TestBotRequest = await request.json();
 
-    if (!botName || !prompt) {
+    if (!rawBotName || !prompt) {
       return NextResponse.json(
         { error: 'Bot name and prompt are required' },
+        { status: 400 }
+      );
+    }
+
+    const botName = normalizePoeBotName(rawBotName);
+    if (!botName) {
+      return NextResponse.json(
+        { error: INVALID_POE_BOT_NAME_ERROR },
         { status: 400 }
       );
     }

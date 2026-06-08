@@ -16,6 +16,8 @@ fail before external Poe requests are attempted.
 - Cover missing-field validation for `/api/analyze-bot`.
 - Cover missing-field validation for `/api/test-bot`.
 - Prove invalid route payloads do not call `fetch`.
+- Cover malformed Poe bot names before route handlers build upstream URLs or
+  model request payloads.
 - Cover the successful `/api/test-bot` request shape with a mocked `fetch`.
 - Keep the coverage inside the existing `npm test` command.
 

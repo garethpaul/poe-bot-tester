@@ -79,6 +79,8 @@ When the required SDK or runtime is unavailable, use static checks and source re
 - Review changes touching network requests, sockets, or service endpoints; examples from the scan include docs/plans/2026-06-08-poe-bot-tester-security-quality-baseline.md, src/app/api/analyze-bot/route.ts, src/app/api/analyze-bot-chunked/route.ts, src/app/api/analyze-bot-stream/bot-analyzer.ts, and 1 more.
 - Review changes touching file, media, JSON, XML, CSV, OCR, or data parsing; examples from the scan include docs/plans/2026-06-08-poe-bot-tester-security-quality-baseline.md, src/app/api/analyze-bot/route.ts, src/app/api/analyze-bot-chunked/route.ts, src/app/api/analyze-bot-stream/bot-analyzer.ts, and 4 more.
 - Review changes touching database, model, or persistence code; examples from the scan include src/app/api/analyze-bot/route.ts, src/app/api/analyze-bot-chunked/route.ts, src/app/api/analyze-bot-stream/bot-analyzer.ts.
+- API routes validate Poe bot names before building upstream Poe URLs or model
+  request payloads.
 
 ## Maintenance Notes
 
@@ -87,6 +89,8 @@ When the required SDK or runtime is unavailable, use static checks and source re
 - See `CHANGES.md` for maintenance history.
 - See `docs/plans/2026-06-08-api-route-validation-tests.md` for App Router
   request-validation test coverage.
+- See `docs/plans/2026-06-08-poe-bot-name-validation.md` for the bot-name
+  validation baseline.
 - See `docs/plans/2026-06-08-analyze-bot-helper-tests.md` for deterministic
   analyzer helper tests.
 

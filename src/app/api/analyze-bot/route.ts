@@ -7,6 +7,10 @@ import {
   type BotMetadata,
   type TestResult,
 } from './scoring';
+import {
+  INVALID_POE_BOT_NAME_ERROR,
+  normalizePoeBotName,
+} from '../poe-bot-name';
 
 export const runtime = 'edge';
 
@@ -515,11 +519,19 @@ async function testErrorHandling(botName: string, apiKey: string): Promise<TestR
 
 export async function POST(request: NextRequest) {
   try {
-    const { botName, apiKey }: AnalyzeBotRequest = await request.json();
+    const { botName: rawBotName, apiKey }: AnalyzeBotRequest = await request.json();
 
-    if (!botName || !apiKey) {
+    if (!rawBotName || !apiKey) {
       return NextResponse.json(
         { error: 'Bot name and API key are required' },
+        { status: 400 }
+      );
+    }
+
+    const botName = normalizePoeBotName(rawBotName);
+    if (!botName) {
+      return NextResponse.json(
+        { error: INVALID_POE_BOT_NAME_ERROR },
         { status: 400 }
       );
     }

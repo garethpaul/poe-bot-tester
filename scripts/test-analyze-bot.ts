@@ -1,11 +1,17 @@
 import assert from 'node:assert/strict';
 
 import { POST as analyzeBotPost } from '../src/app/api/analyze-bot/route';
+import { POST as chunkedAnalyzeBotPost } from '../src/app/api/analyze-bot-chunked/route';
+import { POST as streamAnalyzeBotPost } from '../src/app/api/analyze-bot-stream/route';
 import {
   analyzeBotName,
   analyzeDescription,
   parseBotPage,
 } from '../src/app/api/analyze-bot/scoring';
+import {
+  INVALID_POE_BOT_NAME_ERROR,
+  normalizePoeBotName,
+} from '../src/app/api/poe-bot-name';
 import { POST as testBotPost } from '../src/app/api/test-bot/route';
 
 function jsonRequest<T>(payload: unknown): T {
@@ -67,6 +73,14 @@ assert.deepEqual(
   ]
 );
 
+assert.equal(normalizePoeBotName(' HelperBot '), 'HelperBot');
+assert.equal(normalizePoeBotName('HelperBot_2-test'), 'HelperBot_2-test');
+assert.equal(normalizePoeBotName('A'.repeat(64)), 'A'.repeat(64));
+assert.equal(normalizePoeBotName('A'.repeat(65)), null);
+assert.equal(normalizePoeBotName('_HelperBot'), null);
+assert.equal(normalizePoeBotName('HelperBot/../../admin'), null);
+assert.equal(normalizePoeBotName('https://poe.com/HelperBot'), null);
+
 async function runRouteAssertions() {
   const originalFetch = globalThis.fetch;
   let fetchCalled = false;
@@ -92,6 +106,48 @@ async function runRouteAssertions() {
     assert.deepEqual(await readJson(testBotMissingPrompt), {
       error: 'Bot name and prompt are required',
     });
+
+    const analyzeInvalidName = await analyzeBotPost(
+      jsonRequest<Parameters<typeof analyzeBotPost>[0]>({
+        botName: 'https://poe.com/HelperBot',
+        apiKey: 'test-key',
+      })
+    );
+    assert.equal(analyzeInvalidName.status, 400);
+    assert.deepEqual(await readJson(analyzeInvalidName), {
+      error: INVALID_POE_BOT_NAME_ERROR,
+    });
+
+    const testBotInvalidName = await testBotPost(
+      jsonRequest<Parameters<typeof testBotPost>[0]>({
+        botName: 'HelperBot?debug=true',
+        prompt: 'Say hello',
+      })
+    );
+    assert.equal(testBotInvalidName.status, 400);
+    assert.deepEqual(await readJson(testBotInvalidName), {
+      error: INVALID_POE_BOT_NAME_ERROR,
+    });
+
+    const chunkedInvalidName = await chunkedAnalyzeBotPost(
+      jsonRequest<Parameters<typeof chunkedAnalyzeBotPost>[0]>({
+        botName: '../HelperBot',
+        apiKey: 'test-key',
+      })
+    );
+    assert.equal(chunkedInvalidName.status, 400);
+    assert.deepEqual(await readJson(chunkedInvalidName), {
+      error: INVALID_POE_BOT_NAME_ERROR,
+    });
+
+    const streamInvalidName = await streamAnalyzeBotPost(
+      jsonRequest<Parameters<typeof streamAnalyzeBotPost>[0]>({
+        botName: 'HelperBot/stream',
+        apiKey: 'test-key',
+      })
+    );
+    assert.equal(streamInvalidName.status, 400);
+    assert.equal(await streamInvalidName.text(), INVALID_POE_BOT_NAME_ERROR);
 
     assert.equal(fetchCalled, false);
   } finally {

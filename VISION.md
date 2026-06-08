@@ -19,12 +19,13 @@ Priority:
 - Keep API-key entry under the user's control
 - Maintain the `npm run verify` gate for lint, types, tests, build, and audit
 - Make chunked and streaming analysis behavior easy to trace
+- Validate Poe bot names before upstream fetches or model requests
 
 Next priorities:
 
 - Expand tests from analyzer parsing/name/description helpers into score aggregation and route validation
 - Document which checks require live Poe access
-- Add safer handling for invalid bot names and API failures
+- Add safer handling for API failures
 - Keep sample file fixtures explicit and small
 
 Contribution rules:

@@ -1,5 +1,8 @@
 # Poe Bot Tester
 
+<!-- README-OVERVIEW-IMAGE -->
+![Project overview](docs/readme-overview.svg)
+
 A comprehensive Next.js application for testing and analyzing bots on the Poe.com platform. This tool provides detailed analysis of bot performance, capabilities, and user experience across multiple categories.
 
 ## Features

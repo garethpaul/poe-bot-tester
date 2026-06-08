@@ -41,7 +41,7 @@ avoid persisting secrets, should not send test files anywhere except the
 intended Poe workflow, and should clearly separate public profile scraping from
 authenticated API testing.
 
-## What We Will Not Merge For Now
+## What We Will Not Merge (For Now)
 
 - Persistent API-key storage
 - Hidden telemetry about tested bots

@@ -1,0 +1,49 @@
+## Poe Bot Tester Vision
+
+Poe Bot Tester is a Next.js application for evaluating Poe bots across
+branding, functionality, file support, usability, error handling, and response
+performance.
+
+The repository is useful as an operator-facing testing surface: it combines a
+browser UI, API routes, chunked analysis, progress streaming, and local quality
+gates for repeatable bot assessment.
+
+The goal is to make bot evaluation transparent, reproducible, and careful with
+user-provided Poe API keys.
+
+The current focus is:
+
+Priority:
+
+- Preserve the main bot-analysis workflow and scoring categories
+- Keep API-key entry under the user's control
+- Maintain the `npm run verify` gate for lint, types, build, and audit
+- Make chunked and streaming analysis behavior easy to trace
+
+Next priorities:
+
+- Add tests around scoring weights and result aggregation
+- Document which checks require live Poe access
+- Add safer handling for invalid bot names and API failures
+- Keep sample file fixtures explicit and small
+
+Contribution rules:
+
+- One PR = one focused UI, API route, scoring, fixture, or documentation change.
+- Do not store Poe API keys beyond the active request/session.
+- Add regression coverage for scoring or streaming changes.
+- Keep user-facing scores explainable from the raw test results.
+
+## Security And Responsible Use
+
+The app may handle API keys, uploaded test files, and bot metadata. It should
+avoid persisting secrets, should not send test files anywhere except the
+intended Poe workflow, and should clearly separate public profile scraping from
+authenticated API testing.
+
+## What We Will Not Merge For Now
+
+- Persistent API-key storage
+- Hidden telemetry about tested bots
+- Scoring changes without explanations and tests
+- Large fixture additions without a clear test need

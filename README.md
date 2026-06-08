@@ -16,6 +16,7 @@ This README is based on the checked-in source, manifests, scripts, and repositor
 - `docs` - source or example code
 - `package-lock.json` - JavaScript dependency and script metadata
 - `public` - source or example code
+- `scripts` - deterministic maintenance and regression checks
 - `SECURITY.md` - security reporting and disclosure guidance
 - `src` - source or example code
 - `VISION.md` - project direction and maintenance guardrails
@@ -25,7 +26,7 @@ Additional scan context:
 - Source directories: docs, public, src
 - Dependency and build manifests: package-lock.json, package.json
 - Entry points or build surfaces: package.json
-- Test-looking files: docs/plans/2026-06-08-poe-bot-tester-security-quality-baseline.md, public/test-files/test.html, public/test-files/test.txt, src/app/api/test-bot/route.ts, src/app/api/test-files/route.ts
+- Test-looking files: docs/plans/2026-06-08-analyze-bot-helper-tests.md, docs/plans/2026-06-08-poe-bot-tester-security-quality-baseline.md, public/test-files/test.html, public/test-files/test.txt, scripts/test-analyze-bot.ts, src/app/api/test-bot/route.ts, src/app/api/test-files/route.ts
 
 ## Getting Started
 
@@ -39,7 +40,7 @@ Additional scan context:
 ```bash
 git clone https://github.com/garethpaul/poe-bot-tester.git
 cd poe-bot-tester
-npm install
+npm ci
 ```
 
 The setup commands above are derived from repository files. Legacy mobile, Python, or JavaScript samples may require older SDKs or package versions than a modern workstation uses by default.
@@ -56,12 +57,14 @@ Detected npm scripts:
 - `npm run dev` - `next dev --turbopack`
 - `npm run lint` - `eslint .`
 - `npm run start` - `next start`
+- `npm run test` - `tsx scripts/test-analyze-bot.ts`
 - `npm run typecheck` - `tsc --noEmit`
-- `npm run verify` - `npm run lint && npm run typecheck && npm run build && npm run audit`
+- `npm run verify` - `npm run lint && npm run typecheck && npm test && npm run build && npm run audit`
 
 ## Testing and Verification
 
-- No dedicated automated test command was identified from the checked-in files. Verify changes by running the relevant build or manually exercising the sample.
+- Run `npm test` for deterministic analyzer helper regression coverage.
+- Run `npm run verify` before committing; it runs lint, TypeScript checking, tests, the production build, and dependency audit.
 
 When the required SDK or runtime is unavailable, use static checks and source review first, then verify on a machine that has the matching platform toolchain.
 

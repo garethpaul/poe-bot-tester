@@ -17,12 +17,12 @@ Priority:
 
 - Preserve the main bot-analysis workflow and scoring categories
 - Keep API-key entry under the user's control
-- Maintain the `npm run verify` gate for lint, types, build, and audit
+- Maintain the `npm run verify` gate for lint, types, tests, build, and audit
 - Make chunked and streaming analysis behavior easy to trace
 
 Next priorities:
 
-- Add tests around scoring weights and result aggregation
+- Expand tests from analyzer parsing/name/description helpers into score aggregation and route validation
 - Document which checks require live Poe access
 - Add safer handling for invalid bot names and API failures
 - Keep sample file fixtures explicit and small

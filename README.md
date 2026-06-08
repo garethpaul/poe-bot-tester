@@ -28,7 +28,7 @@ A comprehensive Next.js application for testing and analyzing bots on the Poe.co
 
 ### Prerequisites
 - Node.js 18+ 
-- npm, yarn, pnpm, or bun
+- npm
 - A valid Poe.com API key
 
 ### Installation
@@ -42,22 +42,25 @@ cd poe-bot-tester
 2. Install dependencies:
 ```bash
 npm install
-# or
-yarn install
-# or
-pnpm install
 ```
 
 3. Run the development server:
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
 ```
 
 4. Open [http://localhost:3000](http://localhost:3000) in your browser
+
+## Quality Gates
+
+Run the complete local verification gate before pushing changes:
+
+```bash
+npm run verify
+```
+
+The combined gate runs ESLint, TypeScript checking, a production Next.js build,
+and `npm audit --audit-level=moderate`.
 
 ### Usage
 
@@ -147,7 +150,7 @@ Test file serving endpoint for file support testing.
 - **Styling**: Tailwind CSS 4
 - **Language**: TypeScript 5
 - **UI Components**: Custom React components
-- **HTTP Client**: Axios + native fetch
+- **HTTP Client**: Native fetch
 - **Development**: ESLint, Turbopack
 
 ## Project Structure

@@ -78,6 +78,19 @@ assert.deepEqual(
   ]
 );
 
+const synonymDescriptionResults = analyzeDescription({
+  ...metadata,
+  description: 'HelperBot documents parameters for tone, audience, and file handling, and cannot access private workspace files.',
+});
+assert.deepEqual(
+  synonymDescriptionResults.map(result => [result.name, result.status, result.score]),
+  [
+    ['Description clarity for non-technical users', 'passed', 85],
+    ['Advanced behavior documentation', 'passed', 90],
+    ['Limitation documentation', 'passed', 85],
+  ]
+);
+
 assert.equal(normalizePoeBotName(' HelperBot '), 'HelperBot');
 assert.equal(normalizePoeBotName('HelperBot_2-test'), 'HelperBot_2-test');
 assert.equal(normalizePoeBotName('A'.repeat(64)), 'A'.repeat(64));
@@ -90,6 +103,9 @@ const makefile = readProjectFile('Makefile');
 const readme = readProjectFile('README.md');
 const changes = readProjectFile('CHANGES.md');
 const checkPlan = readProjectFile('docs/plans/2026-06-08-poe-bot-tester-check-wrapper.md');
+const vision = readProjectFile('VISION.md');
+const descriptionScorePlan = readProjectFile('docs/plans/2026-06-09-poe-bot-tester-description-score-alignment.md');
+const streamAnalyzerSource = readProjectFile('src/app/api/analyze-bot-stream/bot-analyzer.ts');
 
 assert.match(makefile, /^check: verify$/m);
 assert.match(makefile, /\$\(NPM\) run verify/);
@@ -98,6 +114,15 @@ assert.match(changes, /make check/);
 assert.match(checkPlan, /Completed/);
 assert.match(checkPlan, /make check/);
 assert.match(checkPlan, /npm run verify/);
+assert.match(readme, /description scoring/);
+assert.match(changes, /description scoring/);
+assert.match(vision, /description scoring/);
+assert.match(descriptionScorePlan, /status: completed/);
+assert.match(descriptionScorePlan, /parameter/);
+assert.match(descriptionScorePlan, /cannot/);
+assert.match(descriptionScorePlan, /npm test/);
+assert.match(streamAnalyzerSource, /hasAdvancedDocs/);
+assert.match(streamAnalyzerSource, /hasLimitations/);
 
 async function runRouteAssertions() {
   const originalFetch = globalThis.fetch;

@@ -8,6 +8,8 @@
   shape.
 - Added shared Poe bot-name validation so route handlers reject malformed names
   before building Poe URLs or model requests.
+- Aligned description scoring so `parameter` and `cannot` evidence receives the
+  same passing scores as equivalent `--` and `limitation` wording.
 - Added deterministic analyzer helper regression tests for Poe profile parsing, bot-name scoring, and description scoring.
 - Wired `npm test` into `npm run verify` so lint, types, tests, build, and audit run as a single local gate.
 - Updated contributor documentation to use `npm ci` and describe the new test command.

@@ -321,6 +321,9 @@ async function analyzeDescriptionWithProgress(
 
   const results: TestResult[] = [];
   const description = metadata?.description || '';
+  const normalizedDescription = description.toLowerCase();
+  const hasAdvancedDocs = normalizedDescription.includes('--') || normalizedDescription.includes('param');
+  const hasLimitations = normalizedDescription.includes('limitation') || normalizedDescription.includes('cannot');
 
   for (const testName of tests) {
     await onProgress({
@@ -344,17 +347,17 @@ async function analyzeDescriptionWithProgress(
       case 'Advanced behavior documentation':
         result = {
           name: testName,
-          status: description.includes('--') || description.includes('param') ? 'passed' : 'failed',
+          status: hasAdvancedDocs ? 'passed' : 'failed',
           details: 'Checking for parameter documentation',
-          score: description.includes('--') ? 90 : 60
+          score: hasAdvancedDocs ? 90 : 60
         };
         break;
       case 'Limitation documentation':
         result = {
           name: testName,
-          status: description.includes('limitation') || description.includes('cannot') ? 'passed' : 'failed',
+          status: hasLimitations ? 'passed' : 'failed',
           details: 'Checking for documented limitations',
-          score: description.includes('limitation') ? 85 : 70
+          score: hasLimitations ? 85 : 70
         };
         break;
       default:

@@ -65,6 +65,8 @@ Detected npm scripts:
 ## Testing and Verification
 
 - Run `npm test` for deterministic analyzer helper regression coverage.
+- Description scoring treats documented parameters and documented `cannot`
+  limitations as full passing evidence across analyzer paths.
 - Run `make check` before committing; it delegates to `npm run verify`, which
   runs lint, TypeScript checking, tests, the production build, and dependency
   audit.
@@ -96,6 +98,8 @@ When the required SDK or runtime is unavailable, use static checks and source re
   validation baseline.
 - See `docs/plans/2026-06-08-analyze-bot-helper-tests.md` for deterministic
   analyzer helper tests.
+- See `docs/plans/2026-06-09-poe-bot-tester-description-score-alignment.md`
+  for the description scoring alignment check.
 - See `docs/plans/2026-06-08-poe-bot-tester-check-wrapper.md` for the root
   check wrapper.
 

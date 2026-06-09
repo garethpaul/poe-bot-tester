@@ -320,7 +320,7 @@ async function analyzeDescriptionWithProgress(
   ];
 
   const results: TestResult[] = [];
-  const description = metadata?.description || '';
+  const description = typeof metadata?.description === 'string' ? metadata.description.trim() : '';
   const normalizedDescription = description.toLowerCase();
   const hasAdvancedDocs = normalizedDescription.includes('--') || normalizedDescription.includes('param');
   const hasLimitations = normalizedDescription.includes('limitation') || normalizedDescription.includes('cannot');

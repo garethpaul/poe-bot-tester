@@ -10,6 +10,7 @@
   before building Poe URLs or model requests.
 - Aligned description scoring so `parameter` and `cannot` evidence receives the
   same passing scores as equivalent `--` and `limitation` wording.
+- Treated blank bot descriptions as missing before description scoring.
 - Rejected blank API keys and prompts before analysis or bot-test routes make
   upstream Poe requests.
 - Replaced random streaming analyzer placeholder scores with deterministic

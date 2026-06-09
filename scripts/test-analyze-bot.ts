@@ -79,6 +79,16 @@ assert.deepEqual(
   ]
 );
 
+const blankDescriptionResults = analyzeDescription({ ...metadata, description: ' '.repeat(80) });
+assert.deepEqual(
+  blankDescriptionResults.map(result => [result.status, result.score]),
+  [
+    ['failed', 40],
+    ['failed', 60],
+    ['failed', 70],
+  ]
+);
+
 const synonymDescriptionResults = analyzeDescription({
   ...metadata,
   description: 'HelperBot documents parameters for tone, audience, and file handling, and cannot access private workspace files.',
@@ -110,6 +120,8 @@ const security = readProjectFile('SECURITY.md');
 const checkPlan = readProjectFile('docs/plans/2026-06-08-poe-bot-tester-check-wrapper.md');
 const vision = readProjectFile('VISION.md');
 const descriptionScorePlan = readProjectFile('docs/plans/2026-06-09-poe-bot-tester-description-score-alignment.md');
+const descriptionNormalizationPlan = readProjectFile('docs/plans/2026-06-09-poe-bot-tester-description-normalization.md');
+const scoringSource = readProjectFile('src/app/api/analyze-bot/scoring.ts');
 const streamAnalyzerSource = readProjectFile('src/app/api/analyze-bot-stream/bot-analyzer.ts');
 const chunkedRouteSource = readProjectFile('src/app/api/analyze-bot-chunked/route.ts');
 const poeBotNameSource = readProjectFile('src/app/api/poe-bot-name.ts');
@@ -160,6 +172,15 @@ assert.match(vision, /invalid chunked analysis indexes/i);
 assert.match(chunkIndexPlan, /status: completed/);
 assert.match(chunkIndexPlan, /normalizeChunkIndex/);
 assert.match(chunkIndexPlan, /Chunk must be an integer between 0 and 6/);
+assert.match(scoringSource, /metadata\.description\.trim\(\)/);
+assert.match(streamAnalyzerSource, /metadata\.description\.trim\(\)/);
+assert.match(readme, /blank bot descriptions/i);
+assert.match(changes, /blank bot descriptions/i);
+assert.match(security, /blank bot descriptions/i);
+assert.match(vision, /blank bot descriptions/i);
+assert.match(descriptionNormalizationPlan, /status: completed/);
+assert.match(descriptionNormalizationPlan, /metadata\.description\.trim\(\)/);
+assert.match(descriptionNormalizationPlan, /npm test/);
 
 async function runRouteAssertions() {
   const originalFetch = globalThis.fetch;

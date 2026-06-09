@@ -53,6 +53,24 @@ assert.deepEqual(metadata, {
   followerCount: 12345,
 });
 
+const reversedMetaHtml = `
+<!doctype html>
+<html>
+  <head>
+    <title>HelperBot - Poe</title>
+    <meta content="HelperBot explains parameters and cannot access private files." name="description">
+    <meta content="https://cdn.example.com/reversed-helperbot.png" property="og:image">
+  </head>
+</html>`;
+
+assert.deepEqual(parseBotPage(reversedMetaHtml, 'HelperBot'), {
+  name: 'HelperBot',
+  displayName: 'HelperBot',
+  description: 'HelperBot explains parameters and cannot access private files.',
+  profilePictureUrl: 'https://cdn.example.com/reversed-helperbot.png',
+  isVerified: false,
+});
+
 assert.deepEqual(analyzeBotName(metadata), {
   score: 100,
   details: 'Name formatting follows good practices',
@@ -128,6 +146,7 @@ const poeBotNameSource = readProjectFile('src/app/api/poe-bot-name.ts');
 const blankInputPlan = readProjectFile('docs/plans/2026-06-09-poe-bot-tester-blank-input-validation.md');
 const deterministicStreamPlan = readProjectFile('docs/plans/2026-06-09-poe-bot-tester-deterministic-stream-scores.md');
 const chunkIndexPlan = readProjectFile('docs/plans/2026-06-09-poe-bot-tester-chunk-index-validation.md');
+const metadataAttributePlan = readProjectFile('docs/plans/2026-06-09-poe-bot-tester-meta-attribute-order.md');
 
 assert.match(makefile, /^check: verify$/m);
 assert.match(makefile, /\$\(NPM\) run verify/);
@@ -173,14 +192,23 @@ assert.match(chunkIndexPlan, /status: completed/);
 assert.match(chunkIndexPlan, /normalizeChunkIndex/);
 assert.match(chunkIndexPlan, /Chunk must be an integer between 0 and 6/);
 assert.match(scoringSource, /metadata\.description\.trim\(\)/);
+assert.match(scoringSource, /function findMetaContent/);
+assert.match(scoringSource, /function findAttribute/);
 assert.match(streamAnalyzerSource, /metadata\.description\.trim\(\)/);
 assert.match(readme, /blank bot descriptions/i);
+assert.match(readme, /order-independent Poe metadata parsing/i);
 assert.match(changes, /blank bot descriptions/i);
+assert.match(changes, /order-independent Poe metadata parsing/i);
 assert.match(security, /blank bot descriptions/i);
+assert.match(security, /order-independent Poe metadata parsing/i);
 assert.match(vision, /blank bot descriptions/i);
+assert.match(vision, /order-independent Poe metadata parsing/i);
 assert.match(descriptionNormalizationPlan, /status: completed/);
 assert.match(descriptionNormalizationPlan, /metadata\.description\.trim\(\)/);
 assert.match(descriptionNormalizationPlan, /npm test/);
+assert.match(metadataAttributePlan, /status: completed/);
+assert.match(metadataAttributePlan, /findMetaContent/);
+assert.match(metadataAttributePlan, /npm test/);
 
 async function runRouteAssertions() {
   const originalFetch = globalThis.fetch;

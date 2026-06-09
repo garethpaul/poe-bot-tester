@@ -40,6 +40,8 @@ API routes trim required user input and reject blank API keys and prompts before
 constructing Poe API requests or bot-page fetches.
 Blank bot descriptions should be treated as missing before description scoring
 so whitespace cannot inflate quality results.
+Order-independent Poe metadata parsing should preserve description and profile
+image extraction when upstream bot pages reorder meta tag attributes.
 Chunked analysis rejects invalid chunked analysis indexes before creating
 progress streams.
 Keep deterministic streaming analyzer scoring so repeated runs do not produce

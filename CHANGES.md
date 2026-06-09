@@ -1,5 +1,10 @@
 # Changes
 
+## 2026-06-09
+
+- Added order-independent Poe metadata parsing for description and profile
+  image meta tags.
+
 ## 2026-06-08
 
 - Added a root `make check` wrapper for the full Next.js verification gate.

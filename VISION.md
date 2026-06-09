@@ -23,6 +23,7 @@ Priority:
 - Reject blank API keys and prompts before upstream Poe requests
 - Keep description scoring criteria and passing scores aligned
 - Keep blank bot descriptions treated as missing before scoring
+- Keep order-independent Poe metadata parsing covered by deterministic tests
 - Keep deterministic streaming analyzer scoring for simulated checks
 - Reject invalid chunked analysis indexes before streaming progress
 

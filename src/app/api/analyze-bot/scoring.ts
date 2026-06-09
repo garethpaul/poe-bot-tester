@@ -14,6 +14,30 @@ export interface BotMetadata {
   followerCount?: number;
 }
 
+function findAttribute(tag: string, attributeName: string): string | null {
+  const match = tag.match(new RegExp(`\\b${attributeName}\\s*=\\s*["']([^"']+)["']`, 'i'));
+  return match ? match[1] : null;
+}
+
+function findMetaContent(html: string, attributeName: string, attributeValue: string): string | null {
+  const metaTags = html.match(/<meta\b[^>]*>/gi) || [];
+  const expectedValue = attributeValue.toLowerCase();
+
+  for (const tag of metaTags) {
+    const actualValue = findAttribute(tag, attributeName);
+    if (actualValue?.toLowerCase() !== expectedValue) {
+      continue;
+    }
+
+    const content = findAttribute(tag, 'content');
+    if (content?.trim()) {
+      return content;
+    }
+  }
+
+  return null;
+}
+
 export function parseBotPage(html: string, botName: string): BotMetadata {
   const metadata: BotMetadata = {
     name: botName,
@@ -27,15 +51,17 @@ export function parseBotPage(html: string, botName: string): BotMetadata {
       metadata.displayName = titleMatch[1].replace(' - Poe', '').trim();
     }
 
-    const descriptionMatch = html.match(/<meta[^>]*name=["']description["'][^>]*content=["']([^"']+)["']/i) ||
-                           html.match(/<meta[^>]*property=["']og:description["'][^>]*content=["']([^"']+)["']/i);
-    if (descriptionMatch) {
-      metadata.description = descriptionMatch[1];
+    const description = findMetaContent(html, 'name', 'description') ||
+      findMetaContent(html, 'property', 'og:description');
+    if (description) {
+      metadata.description = description;
     }
 
-    const profilePicMatch = html.match(/<meta[^>]*property=["']og:image["'][^>]*content=["']([^"']+)["']/i) ||
-                          html.match(/src=["']([^"']*profile[^"']*\.(?:jpg|jpeg|png|gif|webp))["']/i);
-    if (profilePicMatch) {
+    const profilePictureUrl = findMetaContent(html, 'property', 'og:image');
+    const profilePicMatch = html.match(/src=["']([^"']*profile[^"']*\.(?:jpg|jpeg|png|gif|webp))["']/i);
+    if (profilePictureUrl) {
+      metadata.profilePictureUrl = profilePictureUrl;
+    } else if (profilePicMatch) {
       metadata.profilePictureUrl = profilePicMatch[1];
     }
 

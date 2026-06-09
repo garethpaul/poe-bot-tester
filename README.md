@@ -67,6 +67,8 @@ Detected npm scripts:
 - Run `npm test` for deterministic analyzer helper regression coverage.
 - Description scoring treats documented parameters and documented `cannot`
   limitations as full passing evidence across analyzer paths.
+- Order-independent Poe metadata parsing keeps description and profile image
+  extraction stable when meta tag attributes are reordered.
 - Blank bot descriptions are trimmed before scoring so whitespace cannot pass
   description clarity checks.
 - API route tests reject blank API keys and prompts before upstream Poe fetches.
@@ -115,6 +117,8 @@ When the required SDK or runtime is unavailable, use static checks and source re
   for the description scoring alignment check.
 - See `docs/plans/2026-06-09-poe-bot-tester-description-normalization.md`
   for blank bot description scoring.
+- See `docs/plans/2026-06-09-poe-bot-tester-meta-attribute-order.md` for
+  order-independent Poe metadata parsing.
 - See `docs/plans/2026-06-09-poe-bot-tester-blank-input-validation.md` for
   required input validation.
 - See `docs/plans/2026-06-09-poe-bot-tester-deterministic-stream-scores.md`

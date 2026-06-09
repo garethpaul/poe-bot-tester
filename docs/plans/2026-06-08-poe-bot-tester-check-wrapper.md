@@ -14,9 +14,9 @@ gate, but repository automation expects a root `make check` command.
 - Add a root Makefile with lint, typecheck, test, build, audit, verify, and
   check targets.
 - Make `make check` run the same complete gate as `npm run verify`.
-- Remove stale `.next` output and root TypeScript build-info before
-  `npm run build` so repeated Next.js builds cannot reference cleared
-  generated files.
+- Remove stale root TypeScript build-info before `npm run typecheck`, and
+  remove stale `.next` output plus root build-info before `npm run build`, so
+  repeated Next.js gates cannot reference cleared generated files.
 - Preserve wrapper documentation through the deterministic helper test.
 - Update README and CHANGES with the new command.
 

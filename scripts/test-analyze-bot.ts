@@ -174,6 +174,7 @@ const metadataAttributePlan = readProjectFile('docs/plans/2026-06-09-poe-bot-tes
 
 assert.match(makefile, /^check: verify$/m);
 assert.match(makefile, /\$\(NPM\) run verify/);
+assert.match(packageManifest, /"pretypecheck": "node -e/);
 assert.match(packageManifest, /"prebuild": "node -e/);
 assert.match(packageManifest, /\.next/);
 assert.match(packageManifest, /tsconfig\.tsbuildinfo/);
@@ -182,9 +183,9 @@ assert.match(changes, /make check/);
 assert.match(checkPlan, /Completed/);
 assert.match(checkPlan, /make check/);
 assert.match(checkPlan, /npm run verify/);
-assert.match(checkPlan, /stale `\.next` output/);
-assert.match(readme, /stale `\.next` output/);
-assert.match(changes, /stale `\.next` output/);
+assert.match(checkPlan, /stale\s+`\.next` output/);
+assert.match(readme, /stale\s+`\.next` output/);
+assert.match(changes, /stale\s+`\.next` output/);
 assert.match(readme, /description scoring/);
 assert.match(changes, /description scoring/);
 assert.match(vision, /description scoring/);

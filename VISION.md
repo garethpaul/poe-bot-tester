@@ -23,10 +23,11 @@ Priority:
 - Reject blank API keys and prompts before upstream Poe requests
 - Keep description scoring criteria and passing scores aligned
 - Keep deterministic streaming analyzer scoring for simulated checks
+- Reject invalid chunked analysis indexes before streaming progress
 
 Next priorities:
 
-- Expand tests from analyzer parsing/name/description helpers into score aggregation and route validation
+- Expand tests from analyzer parsing/name/description helpers into score aggregation
 - Document which checks require live Poe access
 - Add safer handling for API failures
 - Keep sample file fixtures explicit and small

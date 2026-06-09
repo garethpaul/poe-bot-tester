@@ -111,9 +111,11 @@ const checkPlan = readProjectFile('docs/plans/2026-06-08-poe-bot-tester-check-wr
 const vision = readProjectFile('VISION.md');
 const descriptionScorePlan = readProjectFile('docs/plans/2026-06-09-poe-bot-tester-description-score-alignment.md');
 const streamAnalyzerSource = readProjectFile('src/app/api/analyze-bot-stream/bot-analyzer.ts');
+const chunkedRouteSource = readProjectFile('src/app/api/analyze-bot-chunked/route.ts');
 const poeBotNameSource = readProjectFile('src/app/api/poe-bot-name.ts');
 const blankInputPlan = readProjectFile('docs/plans/2026-06-09-poe-bot-tester-blank-input-validation.md');
 const deterministicStreamPlan = readProjectFile('docs/plans/2026-06-09-poe-bot-tester-deterministic-stream-scores.md');
+const chunkIndexPlan = readProjectFile('docs/plans/2026-06-09-poe-bot-tester-chunk-index-validation.md');
 
 assert.match(makefile, /^check: verify$/m);
 assert.match(makefile, /\$\(NPM\) run verify/);
@@ -149,6 +151,15 @@ assert.match(vision, /deterministic streaming analyzer scoring/);
 assert.match(deterministicStreamPlan, /status: completed/);
 assert.match(deterministicStreamPlan, /Math\.random/);
 assert.match(deterministicStreamPlan, /npm test/);
+assert.match(chunkedRouteSource, /normalizeChunkIndex/);
+assert.match(chunkedRouteSource, /INVALID_CHUNK_INDEX_ERROR/);
+assert.match(readme, /invalid chunk indexes/i);
+assert.match(changes, /invalid chunked analysis indexes/i);
+assert.match(security, /invalid chunked analysis indexes/i);
+assert.match(vision, /invalid chunked analysis indexes/i);
+assert.match(chunkIndexPlan, /status: completed/);
+assert.match(chunkIndexPlan, /normalizeChunkIndex/);
+assert.match(chunkIndexPlan, /Chunk must be an integer between 0 and 6/);
 
 async function runRouteAssertions() {
   const originalFetch = globalThis.fetch;
@@ -240,6 +251,18 @@ async function runRouteAssertions() {
     assert.equal(chunkedBlankKey.status, 400);
     assert.deepEqual(await readJson(chunkedBlankKey), {
       error: 'Bot name and API key are required',
+    });
+
+    const chunkedInvalidChunk = await chunkedAnalyzeBotPost(
+      jsonRequest<Parameters<typeof chunkedAnalyzeBotPost>[0]>({
+        botName: 'HelperBot',
+        apiKey: 'test-key',
+        chunk: 99,
+      })
+    );
+    assert.equal(chunkedInvalidChunk.status, 400);
+    assert.deepEqual(await readJson(chunkedInvalidChunk), {
+      error: 'Chunk must be an integer between 0 and 6',
     });
 
     const streamInvalidName = await streamAnalyzeBotPost(

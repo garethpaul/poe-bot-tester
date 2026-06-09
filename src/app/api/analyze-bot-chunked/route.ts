@@ -11,7 +11,7 @@ export const runtime = 'edge';
 interface ChunkedAnalysisRequest {
   botName: string;
   apiKey: string;
-  chunk?: number; // Which chunk to process (0-based)
+  chunk?: unknown; // Which chunk to process (0-based)
   sessionId?: string; // Session to track progress
 }
 
@@ -86,6 +86,16 @@ const TEST_CHUNKS = [
     category: 'errorHandling'
   }
 ];
+
+const MAX_CHUNK_INDEX = TEST_CHUNKS.length - 1;
+const INVALID_CHUNK_INDEX_ERROR = `Chunk must be an integer between 0 and ${MAX_CHUNK_INDEX}`;
+
+function normalizeChunkIndex(value: unknown): number | null {
+  if (typeof value !== 'number' || !Number.isInteger(value)) return null;
+  if (value < 0 || value > MAX_CHUNK_INDEX) return null;
+
+  return value;
+}
 
 interface SessionData {
   botName: string;
@@ -1321,7 +1331,7 @@ async function testResponseTime(botName: string, apiKey: string, timestamp: stri
 }
 
 export async function POST(request: NextRequest) {
-  const { botName: rawBotName, apiKey: rawApiKey, chunk = 0, sessionId: providedSessionId }: ChunkedAnalysisRequest = await request.json();
+  const { botName: rawBotName, apiKey: rawApiKey, chunk: rawChunk = 0, sessionId: providedSessionId }: ChunkedAnalysisRequest = await request.json();
   const apiKey = normalizeRequiredText(rawApiKey);
 
   if (!rawBotName || !apiKey) {
@@ -1331,6 +1341,11 @@ export async function POST(request: NextRequest) {
   const botName = normalizePoeBotName(rawBotName);
   if (!botName) {
     return NextResponse.json({ error: INVALID_POE_BOT_NAME_ERROR }, { status: 400 });
+  }
+
+  const chunk = normalizeChunkIndex(rawChunk);
+  if (chunk === null) {
+    return NextResponse.json({ error: INVALID_CHUNK_INDEX_ERROR }, { status: 400 });
   }
 
   const sessionId = providedSessionId || `${botName}-${Date.now()}`;

@@ -2,6 +2,7 @@
 
 ## 2026-06-08
 
+- Added a root `make check` wrapper for the full Next.js verification gate.
 - Added deterministic App Router request-validation tests for `/api/analyze-bot`
   and `/api/test-bot`, including mocked-fetch coverage for the Poe request
   shape.

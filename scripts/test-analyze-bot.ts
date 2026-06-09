@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 
 import { POST as analyzeBotPost } from '../src/app/api/analyze-bot/route';
 import { POST as chunkedAnalyzeBotPost } from '../src/app/api/analyze-bot-chunked/route';
@@ -13,6 +14,10 @@ import {
   normalizePoeBotName,
 } from '../src/app/api/poe-bot-name';
 import { POST as testBotPost } from '../src/app/api/test-bot/route';
+
+function readProjectFile(path: string): string {
+  return readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
+}
 
 function jsonRequest<T>(payload: unknown): T {
   return { json: async () => payload } as T;
@@ -80,6 +85,19 @@ assert.equal(normalizePoeBotName('A'.repeat(65)), null);
 assert.equal(normalizePoeBotName('_HelperBot'), null);
 assert.equal(normalizePoeBotName('HelperBot/../../admin'), null);
 assert.equal(normalizePoeBotName('https://poe.com/HelperBot'), null);
+
+const makefile = readProjectFile('Makefile');
+const readme = readProjectFile('README.md');
+const changes = readProjectFile('CHANGES.md');
+const checkPlan = readProjectFile('docs/plans/2026-06-08-poe-bot-tester-check-wrapper.md');
+
+assert.match(makefile, /^check: verify$/m);
+assert.match(makefile, /\$\(NPM\) run verify/);
+assert.match(readme, /make check/);
+assert.match(changes, /make check/);
+assert.match(checkPlan, /Completed/);
+assert.match(checkPlan, /make check/);
+assert.match(checkPlan, /npm run verify/);
 
 async function runRouteAssertions() {
   const originalFetch = globalThis.fetch;

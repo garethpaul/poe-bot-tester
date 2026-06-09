@@ -12,6 +12,7 @@ This README is based on the checked-in source, manifests, scripts, and repositor
 ## Repository Contents
 
 - `README.md` - project overview and local usage notes
+- `Makefile` - repository-level verification wrapper
 - `package.json` - JavaScript dependency and script metadata
 - `docs` - source or example code
 - `package-lock.json` - JavaScript dependency and script metadata
@@ -25,7 +26,7 @@ Additional scan context:
 
 - Source directories: docs, public, src
 - Dependency and build manifests: package-lock.json, package.json
-- Entry points or build surfaces: package.json
+- Entry points or build surfaces: package.json, Makefile
 - Test-looking files: docs/plans/2026-06-08-analyze-bot-helper-tests.md, docs/plans/2026-06-08-poe-bot-tester-security-quality-baseline.md, public/test-files/test.html, public/test-files/test.txt, scripts/test-analyze-bot.ts, src/app/api/test-bot/route.ts, src/app/api/test-files/route.ts
 
 ## Getting Started
@@ -64,7 +65,9 @@ Detected npm scripts:
 ## Testing and Verification
 
 - Run `npm test` for deterministic analyzer helper regression coverage.
-- Run `npm run verify` before committing; it runs lint, TypeScript checking, tests, the production build, and dependency audit.
+- Run `make check` before committing; it delegates to `npm run verify`, which
+  runs lint, TypeScript checking, tests, the production build, and dependency
+  audit.
 
 When the required SDK or runtime is unavailable, use static checks and source review first, then verify on a machine that has the matching platform toolchain.
 
@@ -93,6 +96,8 @@ When the required SDK or runtime is unavailable, use static checks and source re
   validation baseline.
 - See `docs/plans/2026-06-08-analyze-bot-helper-tests.md` for deterministic
   analyzer helper tests.
+- See `docs/plans/2026-06-08-poe-bot-tester-check-wrapper.md` for the root
+  check wrapper.
 
 ## Contributing
 

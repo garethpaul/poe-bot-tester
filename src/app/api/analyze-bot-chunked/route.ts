@@ -89,12 +89,26 @@ const TEST_CHUNKS = [
 
 const MAX_CHUNK_INDEX = TEST_CHUNKS.length - 1;
 const INVALID_CHUNK_INDEX_ERROR = `Chunk must be an integer between 0 and ${MAX_CHUNK_INDEX}`;
+const CHUNK_SESSION_ID_PATTERN = /^[A-Za-z0-9_-]{1,96}$/;
+const INVALID_SESSION_ID_ERROR =
+  'Session ID may only contain letters, numbers, underscores, and hyphens';
 
 function normalizeChunkIndex(value: unknown): number | null {
   if (typeof value !== 'number' || !Number.isInteger(value)) return null;
   if (value < 0 || value > MAX_CHUNK_INDEX) return null;
 
   return value;
+}
+
+function normalizeChunkSessionId(value: unknown, fallback: string): string | null {
+  if (value === undefined || value === null || value === '') return fallback;
+  if (typeof value !== 'string') return null;
+
+  const sessionId = value.trim();
+  if (!sessionId) return fallback;
+  if (!CHUNK_SESSION_ID_PATTERN.test(sessionId)) return null;
+
+  return sessionId;
 }
 
 interface SessionData {
@@ -1348,7 +1362,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: INVALID_CHUNK_INDEX_ERROR }, { status: 400 });
   }
 
-  const sessionId = providedSessionId || `${botName}-${Date.now()}`;
+  const sessionId = normalizeChunkSessionId(providedSessionId, `${botName}-${Date.now()}`);
+  if (!sessionId) {
+    return NextResponse.json({ error: INVALID_SESSION_ID_ERROR }, { status: 400 });
+  }
 
   const stream = new ReadableStream({
     async start(controller) {

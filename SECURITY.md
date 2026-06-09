@@ -44,6 +44,8 @@ Order-independent Poe metadata parsing should preserve description and profile
 image extraction when upstream bot pages reorder meta tag attributes.
 Chunked analysis rejects invalid chunked analysis indexes before creating
 progress streams.
+Chunked analysis rejects invalid chunked analysis session IDs before creating
+progress streams or touching in-memory session state.
 Keep deterministic streaming analyzer scoring so repeated runs do not produce
 random pass/fail results for checks that still require live Poe verification.
 

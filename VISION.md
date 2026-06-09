@@ -26,6 +26,7 @@ Priority:
 - Keep order-independent Poe metadata parsing covered by deterministic tests
 - Keep deterministic streaming analyzer scoring for simulated checks
 - Reject invalid chunked analysis indexes before streaming progress
+- Reject invalid chunked analysis session IDs before streaming progress
 
 Next priorities:
 

@@ -73,6 +73,8 @@ Detected npm scripts:
   description clarity checks.
 - API route tests reject blank API keys and prompts before upstream Poe fetches.
 - Chunked analysis rejects invalid chunk indexes before opening SSE streams.
+- Chunked analysis rejects invalid chunked analysis session IDs before opening
+  SSE streams or touching in-memory session state.
 - Deterministic streaming analyzer scoring avoids random pass/fail output for
   simulated checks that still need live Poe verification.
 - Run `make check` before committing; it delegates to `npm run verify`, which
@@ -102,6 +104,8 @@ When the required SDK or runtime is unavailable, use static checks and source re
 - Blank bot descriptions are treated as missing before description scoring.
 - Chunked analysis rejects invalid chunked analysis indexes before creating
   progress streams.
+- Chunked analysis rejects invalid chunked analysis session IDs before creating
+  progress streams.
 - Streaming analyzer score output stays deterministic; simulated checks are
   marked as pending until live Poe verification is wired in.
 
@@ -128,6 +132,8 @@ When the required SDK or runtime is unavailable, use static checks and source re
   for deterministic streaming analyzer scoring.
 - See `docs/plans/2026-06-09-poe-bot-tester-chunk-index-validation.md` for
   chunked analysis index validation.
+- See `docs/plans/2026-06-09-poe-bot-tester-session-id-validation.md` for
+  chunked analysis session ID validation.
 - See `docs/plans/2026-06-08-poe-bot-tester-check-wrapper.md` for the root
   check wrapper.
 

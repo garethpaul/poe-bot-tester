@@ -171,6 +171,7 @@ const blankInputPlan = readProjectFile('docs/plans/2026-06-09-poe-bot-tester-bla
 const deterministicStreamPlan = readProjectFile('docs/plans/2026-06-09-poe-bot-tester-deterministic-stream-scores.md');
 const chunkIndexPlan = readProjectFile('docs/plans/2026-06-09-poe-bot-tester-chunk-index-validation.md');
 const metadataAttributePlan = readProjectFile('docs/plans/2026-06-09-poe-bot-tester-meta-attribute-order.md');
+const sessionIdPlan = readProjectFile('docs/plans/2026-06-09-poe-bot-tester-session-id-validation.md');
 
 assert.match(makefile, /^check: verify$/m);
 assert.match(makefile, /\$\(NPM\) run verify/);
@@ -215,13 +216,23 @@ assert.match(deterministicStreamPlan, /Math\.random/);
 assert.match(deterministicStreamPlan, /npm test/);
 assert.match(chunkedRouteSource, /normalizeChunkIndex/);
 assert.match(chunkedRouteSource, /INVALID_CHUNK_INDEX_ERROR/);
+assert.match(chunkedRouteSource, /normalizeChunkSessionId/);
+assert.match(chunkedRouteSource, /INVALID_SESSION_ID_ERROR/);
 assert.match(readme, /invalid chunk indexes/i);
+assert.match(readme, /invalid chunked analysis session IDs/i);
 assert.match(changes, /invalid chunked analysis indexes/i);
+assert.match(changes, /invalid chunked analysis session IDs/i);
 assert.match(security, /invalid chunked analysis indexes/i);
+assert.match(security, /invalid chunked analysis session IDs/i);
 assert.match(vision, /invalid chunked analysis indexes/i);
+assert.match(vision, /chunked analysis session IDs/i);
 assert.match(chunkIndexPlan, /status: completed/);
 assert.match(chunkIndexPlan, /normalizeChunkIndex/);
 assert.match(chunkIndexPlan, /Chunk must be an integer between 0 and 6/);
+assert.match(sessionIdPlan, /status: completed/);
+assert.match(sessionIdPlan, /normalizeChunkSessionId/);
+assert.match(sessionIdPlan, /session map/);
+assert.match(sessionIdPlan, /npm test/);
 assert.match(scoringSource, /metadata\.description\.trim\(\)/);
 assert.match(scoringSource, /function findMetaContent/);
 assert.match(scoringSource, /function findAttribute/);
@@ -344,6 +355,18 @@ async function runRouteAssertions() {
     assert.equal(chunkedInvalidChunk.status, 400);
     assert.deepEqual(await readJson(chunkedInvalidChunk), {
       error: 'Chunk must be an integer between 0 and 6',
+    });
+
+    const chunkedInvalidSessionId = await chunkedAnalyzeBotPost(
+      jsonRequest<Parameters<typeof chunkedAnalyzeBotPost>[0]>({
+        botName: 'HelperBot',
+        apiKey: 'test-key',
+        sessionId: '../session',
+      })
+    );
+    assert.equal(chunkedInvalidSessionId.status, 400);
+    assert.deepEqual(await readJson(chunkedInvalidSessionId), {
+      error: 'Session ID may only contain letters, numbers, underscores, and hyphens',
     });
 
     const streamInvalidName = await streamAnalyzeBotPost(

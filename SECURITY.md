@@ -38,6 +38,8 @@ For web services, APIs, sockets, or scraping workflows, prioritize reports invol
 
 API routes trim required user input and reject blank API keys and prompts before
 constructing Poe API requests or bot-page fetches.
+Keep deterministic streaming analyzer scoring so repeated runs do not produce
+random pass/fail results for checks that still require live Poe verification.
 
 ## Dependency and Supply Chain Security
 

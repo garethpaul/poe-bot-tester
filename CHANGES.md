@@ -12,6 +12,10 @@
   same passing scores as equivalent `--` and `limitation` wording.
 - Rejected blank API keys and prompts before analysis or bot-test routes make
   upstream Poe requests.
+- Replaced random streaming analyzer placeholder scores with deterministic
+  pending or fixture-backed results.
+- Added deterministic streaming analyzer scoring coverage to the local test
+  script.
 - Added deterministic analyzer helper regression tests for Poe profile parsing, bot-name scoring, and description scoring.
 - Wired `npm test` into `npm run verify` so lint, types, tests, build, and audit run as a single local gate.
 - Updated contributor documentation to use `npm ci` and describe the new test command.

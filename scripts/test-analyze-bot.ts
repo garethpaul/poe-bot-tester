@@ -113,6 +113,7 @@ const descriptionScorePlan = readProjectFile('docs/plans/2026-06-09-poe-bot-test
 const streamAnalyzerSource = readProjectFile('src/app/api/analyze-bot-stream/bot-analyzer.ts');
 const poeBotNameSource = readProjectFile('src/app/api/poe-bot-name.ts');
 const blankInputPlan = readProjectFile('docs/plans/2026-06-09-poe-bot-tester-blank-input-validation.md');
+const deterministicStreamPlan = readProjectFile('docs/plans/2026-06-09-poe-bot-tester-deterministic-stream-scores.md');
 
 assert.match(makefile, /^check: verify$/m);
 assert.match(makefile, /\$\(NPM\) run verify/);
@@ -138,6 +139,16 @@ assert.match(vision, /blank API keys and prompts/);
 assert.match(blankInputPlan, /status: completed/);
 assert.match(blankInputPlan, /normalizeRequiredText/);
 assert.match(blankInputPlan, /npm test/);
+assert.doesNotMatch(streamAnalyzerSource, /Math\.random/);
+assert.match(streamAnalyzerSource, /Capability inquiry requires live Poe verification/);
+assert.match(streamAnalyzerSource, /Conversation coherence requires live Poe verification/);
+assert.match(readme, /deterministic streaming analyzer scoring/);
+assert.match(changes, /deterministic streaming analyzer scoring/);
+assert.match(security, /deterministic streaming analyzer scoring/);
+assert.match(vision, /deterministic streaming analyzer scoring/);
+assert.match(deterministicStreamPlan, /status: completed/);
+assert.match(deterministicStreamPlan, /Math\.random/);
+assert.match(deterministicStreamPlan, /npm test/);
 
 async function runRouteAssertions() {
   const originalFetch = globalThis.fetch;

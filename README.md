@@ -68,6 +68,8 @@ Detected npm scripts:
 - Description scoring treats documented parameters and documented `cannot`
   limitations as full passing evidence across analyzer paths.
 - API route tests reject blank API keys and prompts before upstream Poe fetches.
+- Deterministic streaming analyzer scoring avoids random pass/fail output for
+  simulated checks that still need live Poe verification.
 - Run `make check` before committing; it delegates to `npm run verify`, which
   runs lint, TypeScript checking, tests, the production build, and dependency
   audit.
@@ -89,6 +91,8 @@ When the required SDK or runtime is unavailable, use static checks and source re
   request payloads.
 - API routes trim required user input and reject blank API keys and prompts
   before making Poe requests.
+- Streaming analyzer score output stays deterministic; simulated checks are
+  marked as pending until live Poe verification is wired in.
 
 ## Maintenance Notes
 
@@ -105,6 +109,8 @@ When the required SDK or runtime is unavailable, use static checks and source re
   for the description scoring alignment check.
 - See `docs/plans/2026-06-09-poe-bot-tester-blank-input-validation.md` for
   required input validation.
+- See `docs/plans/2026-06-09-poe-bot-tester-deterministic-stream-scores.md`
+  for deterministic streaming analyzer scoring.
 - See `docs/plans/2026-06-08-poe-bot-tester-check-wrapper.md` for the root
   check wrapper.
 

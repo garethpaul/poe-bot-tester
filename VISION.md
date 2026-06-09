@@ -22,6 +22,7 @@ Priority:
 - Validate Poe bot names before upstream fetches or model requests
 - Reject blank API keys and prompts before upstream Poe requests
 - Keep description scoring criteria and passing scores aligned
+- Keep deterministic streaming analyzer scoring for simulated checks
 
 Next priorities:
 

@@ -71,6 +71,29 @@ assert.deepEqual(parseBotPage(reversedMetaHtml, 'HelperBot'), {
   isVerified: false,
 });
 
+const dataAttributeHtml = `
+<!doctype html>
+<html>
+  <head>
+    <title>HelperBot - Poe</title>
+    <meta
+      data-name="description"
+      content="This text should not be treated as the bot description."
+    >
+    <meta
+      data-property="og:image"
+      content="https://cdn.example.com/ignored.png"
+    >
+  </head>
+</html>`;
+
+assert.deepEqual(parseBotPage(dataAttributeHtml, 'HelperBot'), {
+  name: 'HelperBot',
+  displayName: 'HelperBot',
+  description: '',
+  isVerified: false,
+});
+
 assert.deepEqual(analyzeBotName(metadata), {
   score: 100,
   details: 'Name formatting follows good practices',
@@ -134,6 +157,7 @@ assert.equal(normalizeRequiredText(null), null);
 const makefile = readProjectFile('Makefile');
 const readme = readProjectFile('README.md');
 const changes = readProjectFile('CHANGES.md');
+const packageManifest = readProjectFile('package.json');
 const security = readProjectFile('SECURITY.md');
 const checkPlan = readProjectFile('docs/plans/2026-06-08-poe-bot-tester-check-wrapper.md');
 const vision = readProjectFile('VISION.md');
@@ -150,11 +174,16 @@ const metadataAttributePlan = readProjectFile('docs/plans/2026-06-09-poe-bot-tes
 
 assert.match(makefile, /^check: verify$/m);
 assert.match(makefile, /\$\(NPM\) run verify/);
+assert.match(packageManifest, /"prebuild": "node -e/);
+assert.match(packageManifest, /tsconfig\.tsbuildinfo/);
 assert.match(readme, /make check/);
 assert.match(changes, /make check/);
 assert.match(checkPlan, /Completed/);
 assert.match(checkPlan, /make check/);
 assert.match(checkPlan, /npm run verify/);
+assert.match(checkPlan, /stale root TypeScript build-info/);
+assert.match(readme, /stale `tsconfig\.tsbuildinfo`/);
+assert.match(changes, /stale root TypeScript build-info/);
 assert.match(readme, /description scoring/);
 assert.match(changes, /description scoring/);
 assert.match(vision, /description scoring/);
@@ -208,6 +237,7 @@ assert.match(descriptionNormalizationPlan, /metadata\.description\.trim\(\)/);
 assert.match(descriptionNormalizationPlan, /npm test/);
 assert.match(metadataAttributePlan, /status: completed/);
 assert.match(metadataAttributePlan, /findMetaContent/);
+assert.match(metadataAttributePlan, /data-name/);
 assert.match(metadataAttributePlan, /npm test/);
 
 async function runRouteAssertions() {

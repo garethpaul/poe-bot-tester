@@ -15,6 +15,8 @@ description and profile image data.
   meta attributes.
 - Add `findAttribute` and `findMetaContent` helpers for order-independent Poe
   metadata parsing.
+- Match exact meta attribute names without accepting prefixed attributes such
+  as `data-name` or `data-property`.
 - Preserve existing title, verification, follower, and fallback profile image
   parsing behavior.
 - Document the metadata parsing guardrail in README, security notes, and vision.

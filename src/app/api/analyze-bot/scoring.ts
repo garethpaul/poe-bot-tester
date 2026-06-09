@@ -15,7 +15,10 @@ export interface BotMetadata {
 }
 
 function findAttribute(tag: string, attributeName: string): string | null {
-  const match = tag.match(new RegExp(`\\b${attributeName}\\s*=\\s*["']([^"']+)["']`, 'i'));
+  const escapedAttributeName = attributeName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const match = tag.match(
+    new RegExp(`(?:^|\\s)${escapedAttributeName}\\s*=\\s*["']([^"']+)["']`, 'i')
+  );
   return match ? match[1] : null;
 }
 

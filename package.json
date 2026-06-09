@@ -5,6 +5,7 @@
   "description": "A Next.js application for testing bots on poe.com",
   "scripts": {
     "dev": "next dev --turbopack",
+    "prebuild": "node -e \"require('node:fs').rmSync('tsconfig.tsbuildinfo', { force: true })\"",
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",

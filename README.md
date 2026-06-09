@@ -78,8 +78,9 @@ Detected npm scripts:
 - Run `make check` before committing; it delegates to `npm run verify`, which
   runs lint, TypeScript checking, tests, the production build, and dependency
   audit.
-- `npm run build` removes stale `tsconfig.tsbuildinfo` first so repeated
-  Next.js builds cannot reuse `.next/types` paths from an earlier build.
+- `npm run build` removes stale `.next` output and `tsconfig.tsbuildinfo`
+  first so repeated Next.js builds cannot reuse generated paths from an
+  earlier build.
 
 When the required SDK or runtime is unavailable, use static checks and source review first, then verify on a machine that has the matching platform toolchain.
 

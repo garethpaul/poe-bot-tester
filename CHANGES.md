@@ -4,8 +4,9 @@
 
 - Added order-independent Poe metadata parsing for description and profile
   image meta tags.
-- Cleared stale root TypeScript build-info before production builds so repeated
-  local Next.js gates do not reference removed `.next/types` files.
+- Cleared stale `.next` output and root TypeScript build-info before
+  production builds so repeated local Next.js gates do not reference removed
+  generated files.
 
 ## 2026-06-08
 

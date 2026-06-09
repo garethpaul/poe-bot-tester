@@ -61,10 +61,13 @@ Detected npm scripts:
 - `npm run test` - `tsx scripts/test-analyze-bot.ts`
 - `npm run typecheck` - `tsc --noEmit`
 - `npm run verify` - `npm run lint && npm run typecheck && npm test && npm run build && npm run audit`
+- `scripts/check-baseline.sh` - repository baseline guard for package scripts,
+  completed plans, and local metadata hygiene
 
 ## Testing and Verification
 
 - Run `npm test` for deterministic analyzer helper regression coverage.
+- Run `scripts/check-baseline.sh` for the repository baseline guard.
 - Description scoring treats documented parameters and documented `cannot`
   limitations as full passing evidence across analyzer paths.
 - Order-independent Poe metadata parsing keeps description and profile image
@@ -83,6 +86,9 @@ Detected npm scripts:
 - `npm run typecheck` removes stale `tsconfig.tsbuildinfo`; `npm run build`
   removes stale `.next` output and `tsconfig.tsbuildinfo` first so repeated
   Next.js gates cannot reuse generated paths from an earlier build.
+- `make check` also runs `scripts/check-baseline.sh` after the npm verify gate
+  to protect required files, package script wiring, completed plan metadata,
+  and local secret/editor ignores.
 
 When the required SDK or runtime is unavailable, use static checks and source review first, then verify on a machine that has the matching platform toolchain.
 
@@ -136,6 +142,8 @@ When the required SDK or runtime is unavailable, use static checks and source re
   chunked analysis session ID validation.
 - See `docs/plans/2026-06-08-poe-bot-tester-check-wrapper.md` for the root
   check wrapper.
+- See `docs/plans/2026-06-09-scripted-baseline-check.md` for the scripted
+  repository baseline guard.
 
 ## Contributing
 

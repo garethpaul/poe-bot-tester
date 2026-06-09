@@ -4,6 +4,8 @@
 
 - Added order-independent Poe metadata parsing for description and profile
   image meta tags.
+- Added `scripts/check-baseline.sh` to protect package script wiring, completed
+  plan metadata, and local secret/editor ignores from `make check`.
 - Rejected invalid chunked analysis session IDs before opening progress streams
   or touching in-memory session state.
 - Cleared root TypeScript build-info before typechecks, and cleared stale

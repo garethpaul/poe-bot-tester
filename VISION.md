@@ -18,6 +18,7 @@ Priority:
 - Preserve the main bot-analysis workflow and scoring categories
 - Keep API-key entry under the user's control
 - Maintain the `npm run verify` gate for lint, types, tests, build, and audit
+- Keep a scriptable baseline guard for package scripts and local metadata
 - Make chunked and streaming analysis behavior easy to trace
 - Validate Poe bot names before upstream fetches or model requests
 - Reject blank API keys and prompts before upstream Poe requests

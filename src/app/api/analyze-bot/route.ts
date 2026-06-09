@@ -10,6 +10,7 @@ import {
 import {
   INVALID_POE_BOT_NAME_ERROR,
   normalizePoeBotName,
+  normalizeRequiredText,
 } from '../poe-bot-name';
 
 export const runtime = 'edge';
@@ -519,7 +520,8 @@ async function testErrorHandling(botName: string, apiKey: string): Promise<TestR
 
 export async function POST(request: NextRequest) {
   try {
-    const { botName: rawBotName, apiKey }: AnalyzeBotRequest = await request.json();
+    const { botName: rawBotName, apiKey: rawApiKey }: AnalyzeBotRequest = await request.json();
+    const apiKey = normalizeRequiredText(rawApiKey);
 
     if (!rawBotName || !apiKey) {
       return NextResponse.json(

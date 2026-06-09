@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import {
   INVALID_POE_BOT_NAME_ERROR,
   normalizePoeBotName,
+  normalizeRequiredText,
 } from '../poe-bot-name';
 
 export const runtime = 'edge';
@@ -1320,7 +1321,8 @@ async function testResponseTime(botName: string, apiKey: string, timestamp: stri
 }
 
 export async function POST(request: NextRequest) {
-  const { botName: rawBotName, apiKey, chunk = 0, sessionId: providedSessionId }: ChunkedAnalysisRequest = await request.json();
+  const { botName: rawBotName, apiKey: rawApiKey, chunk = 0, sessionId: providedSessionId }: ChunkedAnalysisRequest = await request.json();
+  const apiKey = normalizeRequiredText(rawApiKey);
 
   if (!rawBotName || !apiKey) {
     return NextResponse.json({ error: 'Bot name and API key are required' }, { status: 400 });

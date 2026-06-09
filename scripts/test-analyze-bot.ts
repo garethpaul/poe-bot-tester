@@ -12,6 +12,7 @@ import {
 import {
   INVALID_POE_BOT_NAME_ERROR,
   normalizePoeBotName,
+  normalizeRequiredText,
 } from '../src/app/api/poe-bot-name';
 import { POST as testBotPost } from '../src/app/api/test-bot/route';
 
@@ -98,14 +99,20 @@ assert.equal(normalizePoeBotName('A'.repeat(65)), null);
 assert.equal(normalizePoeBotName('_HelperBot'), null);
 assert.equal(normalizePoeBotName('HelperBot/../../admin'), null);
 assert.equal(normalizePoeBotName('https://poe.com/HelperBot'), null);
+assert.equal(normalizeRequiredText('  poe-key  '), 'poe-key');
+assert.equal(normalizeRequiredText('   '), null);
+assert.equal(normalizeRequiredText(null), null);
 
 const makefile = readProjectFile('Makefile');
 const readme = readProjectFile('README.md');
 const changes = readProjectFile('CHANGES.md');
+const security = readProjectFile('SECURITY.md');
 const checkPlan = readProjectFile('docs/plans/2026-06-08-poe-bot-tester-check-wrapper.md');
 const vision = readProjectFile('VISION.md');
 const descriptionScorePlan = readProjectFile('docs/plans/2026-06-09-poe-bot-tester-description-score-alignment.md');
 const streamAnalyzerSource = readProjectFile('src/app/api/analyze-bot-stream/bot-analyzer.ts');
+const poeBotNameSource = readProjectFile('src/app/api/poe-bot-name.ts');
+const blankInputPlan = readProjectFile('docs/plans/2026-06-09-poe-bot-tester-blank-input-validation.md');
 
 assert.match(makefile, /^check: verify$/m);
 assert.match(makefile, /\$\(NPM\) run verify/);
@@ -123,6 +130,14 @@ assert.match(descriptionScorePlan, /cannot/);
 assert.match(descriptionScorePlan, /npm test/);
 assert.match(streamAnalyzerSource, /hasAdvancedDocs/);
 assert.match(streamAnalyzerSource, /hasLimitations/);
+assert.match(poeBotNameSource, /normalizeRequiredText/);
+assert.match(readme, /blank API keys and prompts/);
+assert.match(changes, /blank API keys and prompts/);
+assert.match(security, /blank API keys and prompts/);
+assert.match(vision, /blank API keys and prompts/);
+assert.match(blankInputPlan, /status: completed/);
+assert.match(blankInputPlan, /normalizeRequiredText/);
+assert.match(blankInputPlan, /npm test/);
 
 async function runRouteAssertions() {
   const originalFetch = globalThis.fetch;
@@ -142,11 +157,33 @@ async function runRouteAssertions() {
       error: 'Bot name and API key are required',
     });
 
+    const analyzeBlankKey = await analyzeBotPost(
+      jsonRequest<Parameters<typeof analyzeBotPost>[0]>({
+        botName: 'HelperBot',
+        apiKey: '   ',
+      })
+    );
+    assert.equal(analyzeBlankKey.status, 400);
+    assert.deepEqual(await readJson(analyzeBlankKey), {
+      error: 'Bot name and API key are required',
+    });
+
     const testBotMissingPrompt = await testBotPost(
       jsonRequest<Parameters<typeof testBotPost>[0]>({ botName: 'HelperBot' })
     );
     assert.equal(testBotMissingPrompt.status, 400);
     assert.deepEqual(await readJson(testBotMissingPrompt), {
+      error: 'Bot name and prompt are required',
+    });
+
+    const testBotBlankPrompt = await testBotPost(
+      jsonRequest<Parameters<typeof testBotPost>[0]>({
+        botName: 'HelperBot',
+        prompt: '   ',
+      })
+    );
+    assert.equal(testBotBlankPrompt.status, 400);
+    assert.deepEqual(await readJson(testBotBlankPrompt), {
       error: 'Bot name and prompt are required',
     });
 
@@ -183,6 +220,17 @@ async function runRouteAssertions() {
       error: INVALID_POE_BOT_NAME_ERROR,
     });
 
+    const chunkedBlankKey = await chunkedAnalyzeBotPost(
+      jsonRequest<Parameters<typeof chunkedAnalyzeBotPost>[0]>({
+        botName: 'HelperBot',
+        apiKey: '   ',
+      })
+    );
+    assert.equal(chunkedBlankKey.status, 400);
+    assert.deepEqual(await readJson(chunkedBlankKey), {
+      error: 'Bot name and API key are required',
+    });
+
     const streamInvalidName = await streamAnalyzeBotPost(
       jsonRequest<Parameters<typeof streamAnalyzeBotPost>[0]>({
         botName: 'HelperBot/stream',
@@ -191,6 +239,15 @@ async function runRouteAssertions() {
     );
     assert.equal(streamInvalidName.status, 400);
     assert.equal(await streamInvalidName.text(), INVALID_POE_BOT_NAME_ERROR);
+
+    const streamBlankKey = await streamAnalyzeBotPost(
+      jsonRequest<Parameters<typeof streamAnalyzeBotPost>[0]>({
+        botName: 'HelperBot',
+        apiKey: '   ',
+      })
+    );
+    assert.equal(streamBlankKey.status, 400);
+    assert.equal(await streamBlankKey.text(), 'Bot name and API key are required');
 
     assert.equal(fetchCalled, false);
   } finally {

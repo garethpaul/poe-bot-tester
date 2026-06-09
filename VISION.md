@@ -20,6 +20,7 @@ Priority:
 - Maintain the `npm run verify` gate for lint, types, tests, build, and audit
 - Make chunked and streaming analysis behavior easy to trace
 - Validate Poe bot names before upstream fetches or model requests
+- Reject blank API keys and prompts before upstream Poe requests
 - Keep description scoring criteria and passing scores aligned
 
 Next priorities:

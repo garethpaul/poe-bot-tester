@@ -78,6 +78,8 @@ Detected npm scripts:
 - Chunked analysis rejects invalid chunk indexes before opening SSE streams.
 - Chunked analysis rejects invalid chunked analysis session IDs before opening
   SSE streams or touching in-memory session state.
+- The test-file fixture API rejects unknown test file types, including inherited
+  object keys, before decoding fixture data.
 - Deterministic streaming analyzer scoring avoids random pass/fail output for
   simulated checks that still need live Poe verification.
 - Run `make check` before committing; it delegates to `npm run verify`, which
@@ -112,6 +114,8 @@ When the required SDK or runtime is unavailable, use static checks and source re
   progress streams.
 - Chunked analysis rejects invalid chunked analysis session IDs before creating
   progress streams.
+- Test-file fixture requests reject unknown test file types before decoding
+  fixture data.
 - Streaming analyzer score output stays deterministic; simulated checks are
   marked as pending until live Poe verification is wired in.
 
@@ -140,6 +144,8 @@ When the required SDK or runtime is unavailable, use static checks and source re
   chunked analysis index validation.
 - See `docs/plans/2026-06-09-poe-bot-tester-session-id-validation.md` for
   chunked analysis session ID validation.
+- See `docs/plans/2026-06-10-poe-bot-tester-test-file-type-validation.md` for
+  test-file fixture type validation.
 - See `docs/plans/2026-06-08-poe-bot-tester-check-wrapper.md` for the root
   check wrapper.
 - See `docs/plans/2026-06-09-scripted-baseline-check.md` for the scripted

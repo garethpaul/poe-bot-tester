@@ -1,5 +1,10 @@
 # Changes
 
+## 2026-06-10
+
+- Rejected unknown test file types, including inherited object keys, before
+  decoding fixture data.
+
 ## 2026-06-09
 
 - Added order-independent Poe metadata parsing for description and profile

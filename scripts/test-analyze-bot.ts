@@ -15,6 +15,7 @@ import {
   normalizeRequiredText,
 } from '../src/app/api/poe-bot-name';
 import { POST as testBotPost } from '../src/app/api/test-bot/route';
+import { GET as testFilesGet } from '../src/app/api/test-files/route';
 
 function readProjectFile(path: string): string {
   return readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
@@ -167,11 +168,13 @@ const scoringSource = readProjectFile('src/app/api/analyze-bot/scoring.ts');
 const streamAnalyzerSource = readProjectFile('src/app/api/analyze-bot-stream/bot-analyzer.ts');
 const chunkedRouteSource = readProjectFile('src/app/api/analyze-bot-chunked/route.ts');
 const poeBotNameSource = readProjectFile('src/app/api/poe-bot-name.ts');
+const testFilesSource = readProjectFile('src/app/api/test-files/route.ts');
 const blankInputPlan = readProjectFile('docs/plans/2026-06-09-poe-bot-tester-blank-input-validation.md');
 const deterministicStreamPlan = readProjectFile('docs/plans/2026-06-09-poe-bot-tester-deterministic-stream-scores.md');
 const chunkIndexPlan = readProjectFile('docs/plans/2026-06-09-poe-bot-tester-chunk-index-validation.md');
 const metadataAttributePlan = readProjectFile('docs/plans/2026-06-09-poe-bot-tester-meta-attribute-order.md');
 const sessionIdPlan = readProjectFile('docs/plans/2026-06-09-poe-bot-tester-session-id-validation.md');
+const testFileTypePlan = readProjectFile('docs/plans/2026-06-10-poe-bot-tester-test-file-type-validation.md');
 
 assert.match(makefile, /^check: verify$/m);
 assert.match(makefile, /\$\(NPM\) run verify/);
@@ -252,6 +255,16 @@ assert.match(metadataAttributePlan, /status: completed/);
 assert.match(metadataAttributePlan, /findMetaContent/);
 assert.match(metadataAttributePlan, /data-name/);
 assert.match(metadataAttributePlan, /npm test/);
+assert.match(testFilesSource, /function isTestFileType/);
+assert.match(testFilesSource, /hasOwnProperty\.call/);
+assert.match(readme, /unknown test file types/i);
+assert.match(changes, /unknown test file types/i);
+assert.match(security, /unknown test file types/i);
+assert.match(vision, /unknown test file types/i);
+assert.match(testFileTypePlan, /status: completed/);
+assert.match(testFileTypePlan, /isTestFileType/);
+assert.match(testFileTypePlan, /__proto__/);
+assert.match(testFileTypePlan, /npm test/);
 
 async function runRouteAssertions() {
   const originalFetch = globalThis.fetch;
@@ -386,6 +399,22 @@ async function runRouteAssertions() {
     );
     assert.equal(streamBlankKey.status, 400);
     assert.equal(await streamBlankKey.text(), 'Bot name and API key are required');
+
+    const validTestFile = await testFilesGet(
+      new Request('http://localhost/api/test-files?type=png') as Parameters<typeof testFilesGet>[0]
+    );
+    assert.equal(validTestFile.status, 200);
+    assert.equal(validTestFile.headers.get('content-type'), 'image/png');
+
+    for (const type of ['unknown', '__proto__', 'constructor']) {
+      const invalidTestFile = await testFilesGet(
+        new Request(`http://localhost/api/test-files?type=${type}`) as Parameters<typeof testFilesGet>[0]
+      );
+      assert.equal(invalidTestFile.status, 400);
+      assert.deepEqual(await readJson(invalidTestFile), {
+        error: 'Invalid file type',
+      });
+    }
 
     assert.equal(fetchCalled, false);
   } finally {

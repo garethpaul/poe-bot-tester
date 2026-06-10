@@ -41,15 +41,22 @@ const testFiles = {
   }
 };
 
+type TestFileType = keyof typeof testFiles;
+
+function isTestFileType(value: string | null): value is TestFileType {
+  return typeof value === 'string' &&
+    Object.prototype.hasOwnProperty.call(testFiles, value);
+}
+
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const fileType = searchParams.get('type');
   
-  if (!fileType || !testFiles[fileType as keyof typeof testFiles]) {
+  if (!isTestFileType(fileType)) {
     return NextResponse.json({ error: 'Invalid file type' }, { status: 400 });
   }
   
-  const file = testFiles[fileType as keyof typeof testFiles];
+  const file = testFiles[fileType];
   const buffer = Buffer.from(file.data, 'base64');
   
   return new NextResponse(buffer, {

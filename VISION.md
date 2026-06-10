@@ -28,6 +28,7 @@ Priority:
 - Keep deterministic streaming analyzer scoring for simulated checks
 - Reject invalid chunked analysis indexes before streaming progress
 - Reject invalid chunked analysis session IDs before streaming progress
+- Reject unknown test file types before decoding fixture data
 
 Next priorities:
 

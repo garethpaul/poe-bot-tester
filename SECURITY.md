@@ -46,6 +46,8 @@ Chunked analysis rejects invalid chunked analysis indexes before creating
 progress streams.
 Chunked analysis rejects invalid chunked analysis session IDs before creating
 progress streams or touching in-memory session state.
+Test-file fixture routes reject unknown test file types, including inherited
+object keys, before decoding fixture data.
 Keep deterministic streaming analyzer scoring so repeated runs do not produce
 random pass/fail results for checks that still require live Poe verification.
 

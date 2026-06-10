@@ -15,6 +15,9 @@ The current focus is:
 
 Priority:
 
+- Keep the full Next.js security and build baseline running on pinned hosted
+  Linux with Node 20 and Node 24
+
 - Preserve the main bot-analysis workflow and scoring categories
 - Keep API-key entry under the user's control
 - Maintain the `npm run verify` gate for lint, types, tests, build, and audit

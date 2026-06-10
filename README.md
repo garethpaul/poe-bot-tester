@@ -66,6 +66,9 @@ Detected npm scripts:
 
 ## Testing and Verification
 
+Pinned hosted Linux validation runs `npm ci` and the full `make check` gate on
+Node 20 and Node 24 without Poe credentials or live bot analysis requests.
+
 - Run `npm test` for deterministic analyzer helper regression coverage.
 - Run `scripts/check-baseline.sh` for the repository baseline guard.
 - Description scoring treats documented parameters and documented `cannot`

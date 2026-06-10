@@ -32,6 +32,7 @@ Priority:
 - Reject invalid chunked analysis indexes before streaming progress
 - Reject invalid chunked analysis session IDs before streaming progress
 - Reject unknown test file types before decoding fixture data
+- Keep Poe transport errors stable and free of runtime exception details
 
 Next priorities:
 

@@ -31,6 +31,7 @@ for path in \
   "docs/plans/2026-06-08-poe-bot-tester-check-wrapper.md" \
   "docs/plans/2026-06-09-scripted-baseline-check.md" \
   "docs/plans/2026-06-10-hosted-next-validation.md" \
+  "docs/plans/2026-06-10-poe-bot-tester-transport-errors.md" \
   "scripts/check-baseline.sh"; do
   require_file "$path"
 done
@@ -83,7 +84,7 @@ for cleanup in "tsconfig.tsbuildinfo" "['.next','tsconfig.tsbuildinfo']"; do
   fi
 done
 
-for documented in "npm test" "make check" "scripts/check-baseline.sh" "hosted Linux"; do
+for documented in "npm test" "make check" "Poe transport errors" "scripts/check-baseline.sh" "hosted Linux"; do
   if ! grep -Fq "$documented" "$README"; then
     printf '%s\n' "README must document $documented." >&2
     exit 1

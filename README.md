@@ -83,6 +83,8 @@ Node 20 and Node 24 without Poe credentials or live bot analysis requests.
   SSE streams or touching in-memory session state.
 - The test-file fixture API rejects unknown test file types, including inherited
   object keys, before decoding fixture data.
+- Poe transport errors use stable `502` responses, while outbound timeouts use
+  stable `504` responses without raw runtime details.
 - Deterministic streaming analyzer scoring avoids random pass/fail output for
   simulated checks that still need live Poe verification.
 - Run `make check` before committing; it delegates to `npm run verify`, which

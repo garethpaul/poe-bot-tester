@@ -13,6 +13,11 @@ interface TestBotRequest {
   prompt: string;
 }
 
+function isPoeTimeoutError(error: unknown): boolean {
+  return error instanceof Error &&
+    (error.name === 'TimeoutError' || error.name === 'AbortError');
+}
+
 export async function POST(request: NextRequest) {
   try {
     const { botName: rawBotName, prompt: rawPrompt }: TestBotRequest = await request.json();
@@ -74,18 +79,18 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Bot test error:', error);
-    
-    if (error instanceof Error && error.name === 'TimeoutError') {
+    if (isPoeTimeoutError(error)) {
+      console.error('Poe bot request timed out');
       return NextResponse.json(
-        { error: 'Request timeout - bot took too long to respond' },
-        { status: 408 }
+        { error: 'Poe bot request timed out' },
+        { status: 504 }
       );
     }
 
+    console.error('Poe bot request failed');
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Unknown error occurred' },
-      { status: 500 }
+      { error: 'Unable to reach Poe bot' },
+      { status: 502 }
     );
   }
 }

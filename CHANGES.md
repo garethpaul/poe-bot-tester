@@ -7,6 +7,8 @@
 
 - Rejected unknown test file types, including inherited object keys, before
   decoding fixture data.
+- Replaced raw `/api/test-bot` transport exceptions with stable `502` and `504`
+  responses.
 
 ## 2026-06-09
 

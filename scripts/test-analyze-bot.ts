@@ -449,6 +449,7 @@ async function runTestBotSuccessAssertion() {
     assert.equal(String(capturedUrl), 'https://poe.com/HelperBot');
     assert.ok(capturedInit);
     assert.equal(capturedInit.method, 'POST');
+    assert.ok(capturedInit.signal instanceof AbortSignal);
 
     const headers = capturedInit.headers as Record<string, string>;
     assert.equal(headers['Content-Type'], 'application/json');
@@ -470,9 +471,64 @@ async function runTestBotSuccessAssertion() {
   }
 }
 
+async function runTestBotTransportFailureAssertions() {
+  const originalFetch = globalThis.fetch;
+  const originalConsoleError = console.error;
+  const loggedErrors: string[] = [];
+
+  try {
+    console.error = (...args: unknown[]) => loggedErrors.push(args.join(' '));
+    globalThis.fetch = (async () => {
+      throw new Error('private network path detail');
+    }) as typeof fetch;
+
+    const failedResponse = await testBotPost(
+      jsonRequest<Parameters<typeof testBotPost>[0]>({
+        botName: 'HelperBot',
+        prompt: 'Say hello',
+      })
+    );
+
+    assert.equal(failedResponse.status, 502);
+    const failedBody = await readJson(failedResponse);
+    assert.deepEqual(failedBody, {
+      error: 'Unable to reach Poe bot',
+    });
+
+    const timeoutError = new Error('private timeout detail');
+    timeoutError.name = 'TimeoutError';
+    globalThis.fetch = (async () => {
+      throw timeoutError;
+    }) as typeof fetch;
+
+    const timeoutResponse = await testBotPost(
+      jsonRequest<Parameters<typeof testBotPost>[0]>({
+        botName: 'HelperBot',
+        prompt: 'Say hello',
+      })
+    );
+
+    assert.equal(timeoutResponse.status, 504);
+    const timeoutBody = await readJson(timeoutResponse);
+    assert.deepEqual(timeoutBody, {
+      error: 'Poe bot request timed out',
+    });
+    assert.deepEqual(loggedErrors, [
+      'Poe bot request failed',
+      'Poe bot request timed out',
+    ]);
+    assert.doesNotMatch(JSON.stringify(failedBody), /private/);
+    assert.doesNotMatch(JSON.stringify(timeoutBody), /private/);
+  } finally {
+    globalThis.fetch = originalFetch;
+    console.error = originalConsoleError;
+  }
+}
+
 async function main() {
   await runRouteAssertions();
   await runTestBotSuccessAssertion();
+  await runTestBotTransportFailureAssertions();
 }
 
 main().catch(error => {

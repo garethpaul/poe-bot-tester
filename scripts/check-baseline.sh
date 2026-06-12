@@ -26,8 +26,10 @@ for path in \
   "README.md" \
   "SECURITY.md" \
   "VISION.md" \
+  "eslint.config.mjs" \
   "package.json" \
   "package-lock.json" \
+  "tsconfig.json" \
   "scripts/test-analyze-bot.ts" \
   "src/app/api/analyze-bot-chunked/route.ts" \
   "src/app/api/analyze-bot-stream/bot-analyzer.ts" \
@@ -39,8 +41,48 @@ for path in \
   "docs/plans/2026-06-10-hosted-next-validation.md" \
   "docs/plans/2026-06-10-poe-bot-tester-transport-errors.md" \
   "docs/plans/2026-06-12-poe-metadata-fetch-timeout.md" \
+  "docs/plans/2026-06-12-next-16-toolchain.md" \
   "scripts/check-baseline.sh"; do
   require_file "$path"
+done
+
+for framework_contract in \
+  '"next": "16.2.9"' \
+  '"react": "^19.2.7"' \
+  '"react-dom": "^19.2.7"' \
+  '"eslint": "^9.39.4"' \
+  '"eslint-config-next": "16.2.9"' \
+  '"typescript": "^5.9.3"'; do
+  if ! grep -Fq "$framework_contract" "$PACKAGE_JSON"; then
+    printf '%s\n' "package.json must preserve the reviewed Next 16 toolchain: $framework_contract" >&2
+    exit 1
+  fi
+done
+
+if grep -Fq '"@eslint/eslintrc"' "$PACKAGE_JSON"; then
+  printf '%s\n' "package.json must not restore the obsolete direct FlatCompat dependency." >&2
+  exit 1
+fi
+
+for eslint_contract in \
+  'from "eslint/config"' \
+  'from "eslint-config-next/core-web-vitals"' \
+  'from "eslint-config-next/typescript"' \
+  '...nextVitals' \
+  '...nextTypescript'; do
+  if ! grep -Fq "$eslint_contract" "$ROOT_DIR/eslint.config.mjs"; then
+    printf '%s\n' "eslint.config.mjs must preserve the native Next 16 flat config: $eslint_contract" >&2
+    exit 1
+  fi
+done
+
+for typescript_contract in \
+  '"jsx": "react-jsx"' \
+  '".next/dev/types/**/*.ts"'; do
+  if ! grep -Fq "$typescript_contract" "$ROOT_DIR/tsconfig.json"; then
+    printf '%s\n' "tsconfig.json must preserve the Next 16 setting: $typescript_contract" >&2
+    exit 1
+  fi
 done
 
 for workflow_value in \
@@ -117,7 +159,7 @@ for cleanup in "tsconfig.tsbuildinfo" "['.next','tsconfig.tsbuildinfo']"; do
   fi
 done
 
-for documented in "npm test" "make check" "Poe transport errors" "five-second abort boundary" "scripts/check-baseline.sh" "hosted Linux"; do
+for documented in "npm test" "make check" "Poe transport errors" "five-second abort boundary" "Next.js 16.2.9" "native flat ESLint" "scripts/check-baseline.sh" "hosted Linux"; do
   if ! grep -Fq "$documented" "$README"; then
     printf '%s\n' "README must document $documented." >&2
     exit 1
@@ -178,7 +220,7 @@ found_plan=0
 for plan in "$DOCS_PLANS"/*.md; do
   [ -e "$plan" ] || continue
   found_plan=1
-  if ! grep -iq "status" "$plan" || ! grep -iq "completed" "$plan"; then
+  if [ "$(grep -Eic '^status: completed$' "$plan")" -ne 1 ]; then
     printf '%s\n' "$plan must record completed status." >&2
     exit 1
   fi

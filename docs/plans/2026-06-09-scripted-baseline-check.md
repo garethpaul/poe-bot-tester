@@ -1,5 +1,7 @@
 # Scripted Baseline Check
 
+status: completed
+
 ## Status
 
 Completed

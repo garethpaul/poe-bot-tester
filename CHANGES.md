@@ -2,6 +2,11 @@
 
 ## 2026-06-12
 
+- Upgraded to Next.js 16.2.9 and React 19.2.7, refreshed the compatible
+  Tailwind, ESLint 9, TypeScript 5.9, and type-package toolchain, and retained a
+  zero-vulnerability lockfile.
+- Replaced the legacy FlatCompat bridge with Next 16's native flat ESLint
+  exports and adopted its required React JSX and development route types.
 - Added one shared five-second timeout to Poe bot-page metadata requests across
   non-streaming, streaming, and chunked analyzer modes.
 - Added static route coverage preventing missing abort signals or route-local

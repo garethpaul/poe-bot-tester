@@ -165,6 +165,7 @@ const vision = readProjectFile('VISION.md');
 const descriptionScorePlan = readProjectFile('docs/plans/2026-06-09-poe-bot-tester-description-score-alignment.md');
 const descriptionNormalizationPlan = readProjectFile('docs/plans/2026-06-09-poe-bot-tester-description-normalization.md');
 const scoringSource = readProjectFile('src/app/api/analyze-bot/scoring.ts');
+const analyzeRouteSource = readProjectFile('src/app/api/analyze-bot/route.ts');
 const streamAnalyzerSource = readProjectFile('src/app/api/analyze-bot-stream/bot-analyzer.ts');
 const chunkedRouteSource = readProjectFile('src/app/api/analyze-bot-chunked/route.ts');
 const poeBotNameSource = readProjectFile('src/app/api/poe-bot-name.ts');
@@ -175,6 +176,7 @@ const chunkIndexPlan = readProjectFile('docs/plans/2026-06-09-poe-bot-tester-chu
 const metadataAttributePlan = readProjectFile('docs/plans/2026-06-09-poe-bot-tester-meta-attribute-order.md');
 const sessionIdPlan = readProjectFile('docs/plans/2026-06-09-poe-bot-tester-session-id-validation.md');
 const testFileTypePlan = readProjectFile('docs/plans/2026-06-10-poe-bot-tester-test-file-type-validation.md');
+const metadataTimeoutPlan = readProjectFile('docs/plans/2026-06-12-poe-metadata-fetch-timeout.md');
 
 assert.match(makefile, /^check: verify$/m);
 assert.match(makefile, /\$\(NPM\) run verify/);
@@ -199,6 +201,16 @@ assert.match(descriptionScorePlan, /cannot/);
 assert.match(descriptionScorePlan, /npm test/);
 assert.match(streamAnalyzerSource, /hasAdvancedDocs/);
 assert.match(streamAnalyzerSource, /hasLimitations/);
+assert.match(scoringSource, /export const POE_METADATA_TIMEOUT_MS = 5000/);
+for (const source of [analyzeRouteSource, streamAnalyzerSource, chunkedRouteSource]) {
+  assert.match(source, /AbortSignal\.timeout\(POE_METADATA_TIMEOUT_MS\)/);
+}
+assert.doesNotMatch(analyzeRouteSource, /AbortSignal\.timeout\(5000\)/);
+assert.doesNotMatch(streamAnalyzerSource, /AbortSignal\.timeout\(5000\)/);
+assert.doesNotMatch(chunkedRouteSource, /AbortSignal\.timeout\(5000\)/);
+assert.match(metadataTimeoutPlan, /status: completed/);
+assert.match(metadataTimeoutPlan, /POE_METADATA_TIMEOUT_MS/);
+assert.match(metadataTimeoutPlan, /npm run verify/);
 assert.match(poeBotNameSource, /normalizeRequiredText/);
 assert.match(readme, /blank API keys and prompts/);
 assert.match(changes, /blank API keys and prompts/);
@@ -449,6 +461,7 @@ async function runTestBotSuccessAssertion() {
     assert.equal(String(capturedUrl), 'https://poe.com/HelperBot');
     assert.ok(capturedInit);
     assert.equal(capturedInit.method, 'POST');
+    assert.ok(capturedInit.signal instanceof AbortSignal);
 
     const headers = capturedInit.headers as Record<string, string>;
     assert.equal(headers['Content-Type'], 'application/json');
@@ -470,9 +483,64 @@ async function runTestBotSuccessAssertion() {
   }
 }
 
+async function runTestBotTransportFailureAssertions() {
+  const originalFetch = globalThis.fetch;
+  const originalConsoleError = console.error;
+  const loggedErrors: string[] = [];
+
+  try {
+    console.error = (...args: unknown[]) => loggedErrors.push(args.join(' '));
+    globalThis.fetch = (async () => {
+      throw new Error('private network path detail');
+    }) as typeof fetch;
+
+    const failedResponse = await testBotPost(
+      jsonRequest<Parameters<typeof testBotPost>[0]>({
+        botName: 'HelperBot',
+        prompt: 'Say hello',
+      })
+    );
+
+    assert.equal(failedResponse.status, 502);
+    const failedBody = await readJson(failedResponse);
+    assert.deepEqual(failedBody, {
+      error: 'Unable to reach Poe bot',
+    });
+
+    const timeoutError = new Error('private timeout detail');
+    timeoutError.name = 'TimeoutError';
+    globalThis.fetch = (async () => {
+      throw timeoutError;
+    }) as typeof fetch;
+
+    const timeoutResponse = await testBotPost(
+      jsonRequest<Parameters<typeof testBotPost>[0]>({
+        botName: 'HelperBot',
+        prompt: 'Say hello',
+      })
+    );
+
+    assert.equal(timeoutResponse.status, 504);
+    const timeoutBody = await readJson(timeoutResponse);
+    assert.deepEqual(timeoutBody, {
+      error: 'Poe bot request timed out',
+    });
+    assert.deepEqual(loggedErrors, [
+      'Poe bot request failed',
+      'Poe bot request timed out',
+    ]);
+    assert.doesNotMatch(JSON.stringify(failedBody), /private/);
+    assert.doesNotMatch(JSON.stringify(timeoutBody), /private/);
+  } finally {
+    globalThis.fetch = originalFetch;
+    console.error = originalConsoleError;
+  }
+}
+
 async function main() {
   await runRouteAssertions();
   await runTestBotSuccessAssertion();
+  await runTestBotTransportFailureAssertions();
 }
 
 main().catch(error => {

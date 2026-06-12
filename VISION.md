@@ -15,6 +15,9 @@ The current focus is:
 
 Priority:
 
+- Keep the full Next.js security and build baseline running on pinned hosted
+  Linux with Node 20 and Node 24
+
 - Preserve the main bot-analysis workflow and scoring categories
 - Keep API-key entry under the user's control
 - Maintain the `npm run verify` gate for lint, types, tests, build, and audit
@@ -30,6 +33,9 @@ Priority:
 - Reject invalid chunked analysis indexes before streaming progress
 - Reject invalid chunked analysis session IDs before streaming progress
 - Reject unknown test file types before decoding fixture data
+- Keep Poe transport errors stable and free of runtime exception details
+- Keep one shared five-second abort boundary for Poe metadata fetches across
+  every analyzer mode
 
 Next priorities:
 

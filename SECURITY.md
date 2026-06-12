@@ -51,10 +51,18 @@ Chunked analysis rejects invalid chunked analysis session IDs before creating
 progress streams or touching in-memory session state.
 Test-file fixture routes reject unknown test file types, including inherited
 object keys, before decoding fixture data.
+Poe transport errors and timeouts return stable gateway responses without
+exposing raw runtime exception details.
+Poe bot-page metadata requests in every analyzer mode use the same five-second
+abort boundary to limit resource use when an upstream page stalls.
 Keep deterministic streaming analyzer scoring so repeated runs do not produce
 random pass/fail results for checks that still require live Poe verification.
 
 ## Dependency and Supply Chain Security
+
+Pinned, read-only hosted Linux validation installs the lockfile exactly and
+runs lint, typecheck, tests, production build, and the moderate-level audit
+without API credentials.
 
 Dependency updates should come from trusted package managers and should keep lockfiles in sync when lockfiles exist. Do not commit credentials, private keys, tokens, generated secrets, or machine-local configuration. If a vulnerability depends on a compromised package, typosquatting risk, insecure transitive dependency, or unsafe build step, include the package name, affected version, and the path through which it is used.
 

@@ -4,6 +4,7 @@ import {
   analyzeBotName,
   analyzeDescription,
   parseBotPage,
+  POE_METADATA_TIMEOUT_MS,
   type BotMetadata,
   type TestResult,
 } from './scoring';
@@ -84,7 +85,8 @@ async function fetchBotMetadata(botName: string): Promise<BotMetadata | null> {
         'Accept-Encoding': 'gzip, deflate, br',
         'Connection': 'keep-alive',
         'Upgrade-Insecure-Requests': '1',
-      }
+      },
+      signal: AbortSignal.timeout(POE_METADATA_TIMEOUT_MS)
     });
     
     if (response.ok) {

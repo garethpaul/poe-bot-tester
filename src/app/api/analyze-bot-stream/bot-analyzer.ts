@@ -1,5 +1,7 @@
 // Re-export and modify the analysis functions to support progress callbacks
 
+import { POE_METADATA_TIMEOUT_MS } from '../analyze-bot/scoring';
+
 interface ProgressUpdate {
   type: 'progress' | 'test_start' | 'test_complete' | 'category_start' | 'category_complete' | 'complete' | 'error';
   category?: string;
@@ -201,7 +203,8 @@ async function fetchBotMetadata(botName: string): Promise<BotMetadata | null> {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36',
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-      }
+      },
+      signal: AbortSignal.timeout(POE_METADATA_TIMEOUT_MS)
     });
     
     if (response.ok) {

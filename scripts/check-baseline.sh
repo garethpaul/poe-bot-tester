@@ -30,9 +30,15 @@ for path in \
   "package-lock.json" \
   "scripts/test-analyze-bot.ts" \
   "src/app/api/analyze-bot-chunked/route.ts" \
+  "src/app/api/analyze-bot-stream/bot-analyzer.ts" \
+  "src/app/api/analyze-bot/route.ts" \
+  "src/app/api/analyze-bot/scoring.ts" \
   "docs/plans/2026-06-08-poe-bot-tester-check-wrapper.md" \
   "docs/plans/2026-06-10-ci-baseline.md" \
   "docs/plans/2026-06-09-scripted-baseline-check.md" \
+  "docs/plans/2026-06-10-hosted-next-validation.md" \
+  "docs/plans/2026-06-10-poe-bot-tester-transport-errors.md" \
+  "docs/plans/2026-06-12-poe-metadata-fetch-timeout.md" \
   "scripts/check-baseline.sh"; do
   require_file "$path"
 done
@@ -111,7 +117,7 @@ for cleanup in "tsconfig.tsbuildinfo" "['.next','tsconfig.tsbuildinfo']"; do
   fi
 done
 
-for documented in "npm test" "make check" "scripts/check-baseline.sh"; do
+for documented in "npm test" "make check" "Poe transport errors" "five-second abort boundary" "scripts/check-baseline.sh" "hosted Linux"; do
   if ! grep -Fq "$documented" "$README"; then
     printf '%s\n' "README must document $documented." >&2
     exit 1
@@ -126,6 +132,34 @@ if ! grep -Fq "GitHub Actions" "$README" ||
   printf '%s\n' "Project docs must record the GitHub Actions CI baseline." >&2
   exit 1
 fi
+
+SCORING="$ROOT_DIR/src/app/api/analyze-bot/scoring.ts"
+ANALYZE_ROUTE="$ROOT_DIR/src/app/api/analyze-bot/route.ts"
+STREAM_ANALYZER="$ROOT_DIR/src/app/api/analyze-bot-stream/bot-analyzer.ts"
+CHUNKED_ROUTE="$ROOT_DIR/src/app/api/analyze-bot-chunked/route.ts"
+
+if ! grep -Fq "export const POE_METADATA_TIMEOUT_MS = 5000" "$SCORING"; then
+  printf '%s\n' "scoring.ts must export the shared five-second Poe metadata timeout." >&2
+  exit 1
+fi
+
+for analyzer in "$ANALYZE_ROUTE" "$STREAM_ANALYZER" "$CHUNKED_ROUTE"; do
+  if ! grep -Fq "AbortSignal.timeout(POE_METADATA_TIMEOUT_MS)" "$analyzer"; then
+    printf '%s\n' "$analyzer must apply the shared Poe metadata timeout." >&2
+    exit 1
+  fi
+  if grep -Fq "AbortSignal.timeout(5000)" "$analyzer"; then
+    printf '%s\n' "$analyzer must not define a route-local Poe metadata timeout." >&2
+    exit 1
+  fi
+done
+
+for document in "$README" "$ROOT_DIR/SECURITY.md" "$ROOT_DIR/VISION.md" "$ROOT_DIR/CHANGES.md"; do
+  if ! grep -Fq "five-second" "$document"; then
+    printf '%s\n' "$document must document the shared five-second metadata boundary." >&2
+    exit 1
+  fi
+done
 
 for ignored in "/node_modules" "/.next/" ".env*" ".vercel" "*.tsbuildinfo" ".idea/" ".vscode/" "*.iml"; do
   if ! grep -Fq "$ignored" "$GITIGNORE"; then
@@ -162,7 +196,8 @@ fi
 for plan in \
   "$DOCS_PLANS/2026-06-08-poe-bot-tester-check-wrapper.md" \
   "$DOCS_PLANS/2026-06-10-ci-baseline.md" \
-  "$DOCS_PLANS/2026-06-09-scripted-baseline-check.md"; do
+  "$DOCS_PLANS/2026-06-09-scripted-baseline-check.md" \
+  "$DOCS_PLANS/2026-06-10-hosted-next-validation.md"; do
   if ! grep -Fq "make check" "$plan"; then
     printf '%s\n' "$plan must document make check verification." >&2
     exit 1

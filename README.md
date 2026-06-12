@@ -66,6 +66,9 @@ Detected npm scripts:
 
 ## Testing and Verification
 
+Pinned hosted Linux validation runs `npm ci` and the full `make check` gate on
+Node 20 and Node 24 without Poe credentials or live bot analysis requests.
+
 - Run `npm test` for deterministic analyzer helper regression coverage.
 - Run `scripts/check-baseline.sh` for the repository baseline guard.
 - Description scoring treats documented parameters and documented `cannot`
@@ -80,6 +83,11 @@ Detected npm scripts:
   SSE streams or touching in-memory session state.
 - The test-file fixture API rejects unknown test file types, including inherited
   object keys, before decoding fixture data.
+- Poe transport errors use stable `502` responses, while outbound timeouts use
+  stable `504` responses without raw runtime details.
+- Non-streaming, streaming, and chunked Poe bot-page metadata requests share a
+  five-second abort boundary so a stalled upstream page cannot hold analysis
+  routes open indefinitely.
 - Deterministic streaming analyzer scoring avoids random pass/fail output for
   simulated checks that still need live Poe verification.
 - Run `make check` before committing; it delegates to `npm run verify`, which
@@ -148,6 +156,8 @@ When the required SDK or runtime is unavailable, use static checks and source re
   chunked analysis session ID validation.
 - See `docs/plans/2026-06-10-poe-bot-tester-test-file-type-validation.md` for
   test-file fixture type validation.
+- See `docs/plans/2026-06-12-poe-metadata-fetch-timeout.md` for the shared Poe
+  metadata request timeout.
 - See `docs/plans/2026-06-08-poe-bot-tester-check-wrapper.md` for the root
   check wrapper.
 - See `docs/plans/2026-06-09-scripted-baseline-check.md` for the scripted

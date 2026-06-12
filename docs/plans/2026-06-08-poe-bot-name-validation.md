@@ -1,5 +1,7 @@
 # Poe Bot Name Validation
 
+status: completed
+
 ## Status
 
 Completed

@@ -31,6 +31,9 @@ Helpful reports include:
 - Review found file, document, data, or media parsing flows; changes in those areas should receive security-focused review before merge.
 - Review found database, model, query, or persistence-related code; changes in those areas should receive security-focused review before merge.
 - Dependency manifests detected: package.json, package-lock.json. Dependency updates should preserve lockfiles when present and avoid introducing packages without a clear maintenance reason.
+- Pinned, read-only GitHub Actions runs `make check` after `npm ci` on Node 20
+  and Node 24 without Poe credentials, keeping analyzer, API route, build,
+  audit, and dependency guardrails enforced before merge.
 
 ## Service and API Notes
 

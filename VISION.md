@@ -19,6 +19,7 @@ Priority:
 - Keep API-key entry under the user's control
 - Maintain the `npm run verify` gate for lint, types, tests, build, and audit
 - Keep a scriptable baseline guard for package scripts and local metadata
+- Keep GitHub Actions aligned with the local npm `make check` baseline
 - Make chunked and streaming analysis behavior easy to trace
 - Validate Poe bot names before upstream fetches or model requests
 - Reject blank API keys and prompts before upstream Poe requests
@@ -43,6 +44,8 @@ Contribution rules:
 - Do not store Poe API keys beyond the active request/session.
 - Add regression coverage for scoring or streaming changes.
 - Keep user-facing scores explainable from the raw test results.
+- Keep `.github/workflows/check.yml` in sync with the local npm verification
+  gate.
 
 ## Security And Responsible Use
 

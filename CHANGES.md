@@ -2,6 +2,8 @@
 
 ## 2026-06-10
 
+- Added pinned, credential-free, read-only GitHub Actions validation on Node 20
+  and Node 24 using lockfile installation and the full `make check` gate.
 - Rejected unknown test file types, including inherited object keys, before
   decoding fixture data.
 

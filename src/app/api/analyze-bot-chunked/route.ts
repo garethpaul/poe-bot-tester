@@ -5,6 +5,7 @@ import {
   normalizePoeBotName,
   normalizeRequiredText,
 } from '../poe-bot-name';
+import { POE_METADATA_TIMEOUT_MS } from '../analyze-bot/scoring';
 
 export const runtime = 'edge';
 
@@ -292,7 +293,7 @@ async function executeTest(testName: string, botName: string, apiKey: string, se
             headers: {
               'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36',
             },
-            signal: AbortSignal.timeout(5000)
+            signal: AbortSignal.timeout(POE_METADATA_TIMEOUT_MS)
           });
           
           const duration = Date.now() - startTime;

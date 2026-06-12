@@ -50,6 +50,8 @@ Test-file fixture routes reject unknown test file types, including inherited
 object keys, before decoding fixture data.
 Poe transport errors and timeouts return stable gateway responses without
 exposing raw runtime exception details.
+Poe bot-page metadata requests in every analyzer mode use the same five-second
+abort boundary to limit resource use when an upstream page stalls.
 Keep deterministic streaming analyzer scoring so repeated runs do not produce
 random pass/fail results for checks that still require live Poe verification.
 

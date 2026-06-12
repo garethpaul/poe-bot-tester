@@ -1,5 +1,12 @@
 # Changes
 
+## 2026-06-12
+
+- Added one shared five-second timeout to Poe bot-page metadata requests across
+  non-streaming, streaming, and chunked analyzer modes.
+- Added static route coverage preventing missing abort signals or route-local
+  timeout drift while preserving existing metadata fallback behavior.
+
 ## 2026-06-10
 
 - Added pinned, read-only hosted Linux validation on Node 20 and Node 24 using

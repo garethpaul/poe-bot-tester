@@ -14,6 +14,8 @@ export interface BotMetadata {
   followerCount?: number;
 }
 
+export const POE_METADATA_TIMEOUT_MS = 5000;
+
 function findAttribute(tag: string, attributeName: string): string | null {
   const escapedAttributeName = attributeName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const match = tag.match(

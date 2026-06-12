@@ -33,6 +33,8 @@ Priority:
 - Reject invalid chunked analysis session IDs before streaming progress
 - Reject unknown test file types before decoding fixture data
 - Keep Poe transport errors stable and free of runtime exception details
+- Keep one shared five-second abort boundary for Poe metadata fetches across
+  every analyzer mode
 
 Next priorities:
 

@@ -165,6 +165,7 @@ const vision = readProjectFile('VISION.md');
 const descriptionScorePlan = readProjectFile('docs/plans/2026-06-09-poe-bot-tester-description-score-alignment.md');
 const descriptionNormalizationPlan = readProjectFile('docs/plans/2026-06-09-poe-bot-tester-description-normalization.md');
 const scoringSource = readProjectFile('src/app/api/analyze-bot/scoring.ts');
+const analyzeRouteSource = readProjectFile('src/app/api/analyze-bot/route.ts');
 const streamAnalyzerSource = readProjectFile('src/app/api/analyze-bot-stream/bot-analyzer.ts');
 const chunkedRouteSource = readProjectFile('src/app/api/analyze-bot-chunked/route.ts');
 const poeBotNameSource = readProjectFile('src/app/api/poe-bot-name.ts');
@@ -175,6 +176,7 @@ const chunkIndexPlan = readProjectFile('docs/plans/2026-06-09-poe-bot-tester-chu
 const metadataAttributePlan = readProjectFile('docs/plans/2026-06-09-poe-bot-tester-meta-attribute-order.md');
 const sessionIdPlan = readProjectFile('docs/plans/2026-06-09-poe-bot-tester-session-id-validation.md');
 const testFileTypePlan = readProjectFile('docs/plans/2026-06-10-poe-bot-tester-test-file-type-validation.md');
+const metadataTimeoutPlan = readProjectFile('docs/plans/2026-06-12-poe-metadata-fetch-timeout.md');
 
 assert.match(makefile, /^check: verify$/m);
 assert.match(makefile, /\$\(NPM\) run verify/);
@@ -199,6 +201,16 @@ assert.match(descriptionScorePlan, /cannot/);
 assert.match(descriptionScorePlan, /npm test/);
 assert.match(streamAnalyzerSource, /hasAdvancedDocs/);
 assert.match(streamAnalyzerSource, /hasLimitations/);
+assert.match(scoringSource, /export const POE_METADATA_TIMEOUT_MS = 5000/);
+for (const source of [analyzeRouteSource, streamAnalyzerSource, chunkedRouteSource]) {
+  assert.match(source, /AbortSignal\.timeout\(POE_METADATA_TIMEOUT_MS\)/);
+}
+assert.doesNotMatch(analyzeRouteSource, /AbortSignal\.timeout\(5000\)/);
+assert.doesNotMatch(streamAnalyzerSource, /AbortSignal\.timeout\(5000\)/);
+assert.doesNotMatch(chunkedRouteSource, /AbortSignal\.timeout\(5000\)/);
+assert.match(metadataTimeoutPlan, /status: completed/);
+assert.match(metadataTimeoutPlan, /POE_METADATA_TIMEOUT_MS/);
+assert.match(metadataTimeoutPlan, /npm run verify/);
 assert.match(poeBotNameSource, /normalizeRequiredText/);
 assert.match(readme, /blank API keys and prompts/);
 assert.match(changes, /blank API keys and prompts/);

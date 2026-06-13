@@ -61,6 +61,8 @@ Poe bot-page metadata requests in every analyzer mode use the same five-second
 abort boundary to limit resource use when an upstream page stalls.
 Keep deterministic streaming analyzer scoring so repeated runs do not produce
 random pass/fail results for checks that still require live Poe verification.
+Keep overall score aggregation finite for empty or malformed score collections;
+missing and non-finite scores contribute zero rather than propagating `NaN`.
 
 ## Dependency and Supply Chain Security
 

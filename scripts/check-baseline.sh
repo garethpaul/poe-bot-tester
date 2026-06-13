@@ -47,6 +47,7 @@ for path in \
   "docs/plans/2026-06-12-next-16-toolchain.md" \
   "docs/plans/2026-06-13-malformed-json-request-bodies.md" \
   "docs/plans/2026-06-13-json-request-body-limit.md" \
+  "docs/plans/2026-06-13-score-aggregation.md" \
   "scripts/check-baseline.sh"; do
   require_file "$path"
 done
@@ -193,6 +194,56 @@ STREAM_ROUTE="$ROOT_DIR/src/app/api/analyze-bot-stream/route.ts"
 TEST_BOT_ROUTE="$ROOT_DIR/src/app/api/test-bot/route.ts"
 REQUEST_BODY="$ROOT_DIR/src/app/api/request-body.ts"
 ROUTE_TESTS="$ROOT_DIR/scripts/test-analyze-bot.ts"
+
+for scoring_contract in \
+  "export function calculateOverallScore" \
+  "if (results.length === 0) return 0" \
+  "Number.isFinite(score)" \
+  "return Math.round(total / results.length)"; do
+  if ! grep -Fq "$scoring_contract" "$SCORING"; then
+    printf '%s\n' "scoring.ts must preserve score aggregation: $scoring_contract" >&2
+    exit 1
+  fi
+done
+
+for consumer in "$ANALYZE_ROUTE" "$STREAM_ANALYZER" "$CHUNKED_ROUTE"; do
+  if ! grep -Fq "calculateOverallScore(allResults)" "$consumer"; then
+    printf '%s\n' "$consumer must use the shared score aggregator." >&2
+    exit 1
+  fi
+done
+
+for score_test in \
+  "calculateOverallScore([]), 0" \
+  "{ score: 80 }, { score: 81 }" \
+  "{ score: 100 }, {}, { score: 50 }" \
+  "Number.POSITIVE_INFINITY" \
+  "{ score: -10 }, { score: 130 }"; do
+  if ! grep -Fq "$score_test" "$ROUTE_TESTS"; then
+    printf '%s\n' "score aggregation tests must preserve: $score_test" >&2
+    exit 1
+  fi
+done
+
+for document in "$README" "$ROOT_DIR/SECURITY.md" "$ROOT_DIR/VISION.md" "$ROOT_DIR/CHANGES.md"; do
+  if ! grep -Fq "score aggregation" "$document"; then
+    printf '%s\n' "$document must document score aggregation." >&2
+    exit 1
+  fi
+done
+
+for evidence in \
+  "status: completed" \
+  "Node 20" \
+  "Node 24" \
+  "make check" \
+  "hostile mutations" \
+  "git diff --check"; do
+  if ! grep -Fq "$evidence" "$DOCS_PLANS/2026-06-13-score-aggregation.md"; then
+    printf '%s\n' "score aggregation plan must preserve completed evidence: $evidence" >&2
+    exit 1
+  fi
+done
 
 for request_contract in \
   "export const INVALID_JSON_BODY_ERROR = 'Request body must be a JSON object'" \

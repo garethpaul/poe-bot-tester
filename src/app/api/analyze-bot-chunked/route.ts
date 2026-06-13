@@ -10,7 +10,10 @@ import {
   JSON_BODY_TOO_LARGE_ERROR,
   parseJsonObject,
 } from '../request-body';
-import { POE_METADATA_TIMEOUT_MS } from '../analyze-bot/scoring';
+import {
+  calculateOverallScore,
+  POE_METADATA_TIMEOUT_MS,
+} from '../analyze-bot/scoring';
 
 export const runtime = 'edge';
 
@@ -244,12 +247,7 @@ async function processChunk(
   if (chunkIndex >= TEST_CHUNKS.length - 1) {
     // Calculate final score and send completion
     const allResults = Object.values(sessionData.results).flat();
-    const overallScore = Math.round(
-      allResults.reduce((sum: number, result: unknown) => {
-        const testResult = result as { score?: number };
-        return sum + (testResult.score || 0);
-      }, 0) / allResults.length
-    );
+    const overallScore = calculateOverallScore(allResults);
 
     const scorecard = {
       botName,

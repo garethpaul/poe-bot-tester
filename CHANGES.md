@@ -2,6 +2,9 @@
 
 ## 2026-06-13
 
+- Shared overall score aggregation across all analyzer modes and added focused
+  empty, missing, non-finite, rounding, and range regression coverage.
+
 - Rejected malformed and non-object JSON request bodies with stable HTTP 400
   responses before validation, stream creation, or Poe requests.
 - Added a 64 KiB JSON request body limit with stable HTTP 413 responses before

@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import {
   analyzeBotName,
   analyzeDescription,
+  calculateOverallScore,
   parseBotPage,
   POE_METADATA_TIMEOUT_MS,
   type BotMetadata,
@@ -574,9 +575,7 @@ export async function POST(request: NextRequest) {
       ...errorHandlingResults
     ];
 
-    const overallScore = Math.round(
-      allResults.reduce((sum, result) => sum + (result.score || 0), 0) / allResults.length
-    );
+    const overallScore = calculateOverallScore(allResults);
 
     const responseTime = conversationResults.find(r => r.name.includes('Response time'))?.score;
 

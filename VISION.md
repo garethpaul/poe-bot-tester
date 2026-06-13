@@ -38,10 +38,11 @@ Priority:
 - Keep Poe transport errors stable and free of runtime exception details
 - Keep one shared five-second abort boundary for Poe metadata fetches across
   every analyzer mode
+- Keep overall score aggregation shared and deterministic across standard,
+  streaming, and chunked analyzers
 
 Next priorities:
 
-- Expand tests from analyzer parsing/name/description helpers into score aggregation
 - Document which checks require live Poe access
 - Add safer handling for API failures
 - Keep sample file fixtures explicit and small

@@ -1,6 +1,6 @@
 // Re-export and modify the analysis functions to support progress callbacks
 
-import { POE_METADATA_TIMEOUT_MS } from '../analyze-bot/scoring';
+import { calculateOverallScore, POE_METADATA_TIMEOUT_MS } from '../analyze-bot/scoring';
 
 interface ProgressUpdate {
   type: 'progress' | 'test_start' | 'test_complete' | 'category_start' | 'category_complete' | 'complete' | 'error';
@@ -174,9 +174,7 @@ export async function analyzeBot(
     ...errorHandlingResults
   ];
 
-  const overallScore = Math.round(
-    allResults.reduce((sum, result) => sum + (result.score || 0), 0) / allResults.length
-  );
+  const overallScore = calculateOverallScore(allResults);
 
   const responseTime = conversationResults.find(r => r.name.includes('Response time'))?.score;
 

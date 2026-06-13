@@ -7,6 +7,7 @@ import { POST as streamAnalyzeBotPost } from '../src/app/api/analyze-bot-stream/
 import {
   analyzeBotName,
   analyzeDescription,
+  calculateOverallScore,
   parseBotPage,
 } from '../src/app/api/analyze-bot/scoring';
 import {
@@ -213,6 +214,15 @@ assert.deepEqual(
     ['Limitation documentation', 'passed', 85],
   ]
 );
+
+assert.equal(calculateOverallScore([]), 0);
+assert.equal(calculateOverallScore([{ score: 80 }, { score: 81 }]), 81);
+assert.equal(calculateOverallScore([{ score: 100 }, {}, { score: 50 }]), 50);
+assert.equal(
+  calculateOverallScore([{ score: Number.NaN }, { score: Number.POSITIVE_INFINITY }, { score: 90 }]),
+  30
+);
+assert.equal(calculateOverallScore([{ score: -10 }, { score: 130 }]), 60);
 
 const sparseDescriptionResults = analyzeDescription({ ...metadata, description: 'short' });
 assert.deepEqual(

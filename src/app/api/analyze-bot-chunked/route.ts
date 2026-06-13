@@ -5,7 +5,11 @@ import {
   normalizePoeBotName,
   normalizeRequiredText,
 } from '../poe-bot-name';
-import { INVALID_JSON_BODY_ERROR, parseJsonObject } from '../request-body';
+import {
+  INVALID_JSON_BODY_ERROR,
+  JSON_BODY_TOO_LARGE_ERROR,
+  parseJsonObject,
+} from '../request-body';
 import { POE_METADATA_TIMEOUT_MS } from '../analyze-bot/scoring';
 
 export const runtime = 'edge';
@@ -1340,10 +1344,15 @@ async function testResponseTime(botName: string, apiKey: string, timestamp: stri
 }
 
 export async function POST(request: NextRequest) {
-  const body = await parseJsonObject(request);
-  if (!body) {
-    return NextResponse.json({ error: INVALID_JSON_BODY_ERROR }, { status: 400 });
+  const parsedBody = await parseJsonObject(request);
+  if (!parsedBody.ok) {
+    const oversized = parsedBody.reason === 'too_large';
+    return NextResponse.json(
+      { error: oversized ? JSON_BODY_TOO_LARGE_ERROR : INVALID_JSON_BODY_ERROR },
+      { status: oversized ? 413 : 400 }
+    );
   }
+  const body = parsedBody.value;
 
   const {
     botName: rawBotName,

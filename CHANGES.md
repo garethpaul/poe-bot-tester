@@ -4,6 +4,8 @@
 
 - Rejected malformed and non-object JSON request bodies with stable HTTP 400
   responses before validation, stream creation, or Poe requests.
+- Added a 64 KiB JSON request body limit with stable HTTP 413 responses before
+  parsing, validation, stream creation, or Poe requests.
 - Refreshed the transitive `esbuild` lockfile family to 0.28.1 after the
   moderate-level audit began rejecting 0.28.0 for two published advisories.
 

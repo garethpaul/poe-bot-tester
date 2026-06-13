@@ -16,6 +16,8 @@ import {
 } from '../src/app/api/poe-bot-name';
 import {
   INVALID_JSON_BODY_ERROR,
+  JSON_BODY_TOO_LARGE_ERROR,
+  MAX_JSON_BODY_BYTES,
   parseJsonObject,
 } from '../src/app/api/request-body';
 import { POST as testBotPost } from '../src/app/api/test-bot/route';
@@ -26,15 +28,22 @@ function readProjectFile(path: string): string {
 }
 
 function jsonRequest<T>(payload: unknown): T {
-  return { json: async () => payload } as T;
+  return rawRequest<T>(JSON.stringify(payload));
 }
 
 function malformedJsonRequest<T>(): T {
-  return {
-    json: async () => {
-      throw new SyntaxError('Unexpected end of JSON input');
+  return rawRequest<T>('{');
+}
+
+function rawRequest<T>(body: string, headers: HeadersInit = {}): T {
+  return new Request('http://localhost/api/test', {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      ...headers,
     },
-  } as T;
+    body,
+  }) as T;
 }
 
 async function readJson(response: Response): Promise<unknown> {
@@ -42,13 +51,85 @@ async function readJson(response: Response): Promise<unknown> {
 }
 
 async function runRequestBodyAssertions() {
-  assert.deepEqual(await parseJsonObject(jsonRequest<Pick<Request, 'json'>>({ ok: true })), {
+  assert.deepEqual(await parseJsonObject(jsonRequest<Request>({ ok: true })), {
     ok: true,
+    value: { ok: true },
   });
-  assert.equal(await parseJsonObject(malformedJsonRequest<Pick<Request, 'json'>>()), null);
-  assert.equal(await parseJsonObject(jsonRequest<Pick<Request, 'json'>>([])), null);
-  assert.equal(await parseJsonObject(jsonRequest<Pick<Request, 'json'>>('text')), null);
-  assert.equal(await parseJsonObject(jsonRequest<Pick<Request, 'json'>>(null)), null);
+  assert.deepEqual(await parseJsonObject(malformedJsonRequest<Request>()), {
+    ok: false,
+    reason: 'invalid',
+  });
+  for (const payload of [[], 'text', null]) {
+    assert.deepEqual(await parseJsonObject(jsonRequest<Request>(payload)), {
+      ok: false,
+      reason: 'invalid',
+    });
+  }
+
+  let declaredBodyRead = false;
+  const declaredOversizedRequest = {
+    headers: new Headers({ 'content-length': String(MAX_JSON_BODY_BYTES + 1) }),
+    body: {
+      getReader() {
+        declaredBodyRead = true;
+        throw new Error('declared oversized bodies must not be read');
+      },
+    } as unknown as ReadableStream<Uint8Array>,
+  };
+  assert.deepEqual(await parseJsonObject(
+    declaredOversizedRequest as unknown as Pick<Request, 'body' | 'headers'>
+  ), {
+    ok: false,
+    reason: 'too_large',
+  });
+  assert.equal(declaredBodyRead, false);
+
+  const extremelyLargeDeclaredRequest = {
+    ...declaredOversizedRequest,
+    headers: new Headers({ 'content-length': '9007199254740991000' }),
+  };
+  assert.deepEqual(await parseJsonObject(
+    extremelyLargeDeclaredRequest as unknown as Pick<Request, 'body' | 'headers'>
+  ), {
+    ok: false,
+    reason: 'too_large',
+  });
+  assert.equal(declaredBodyRead, false);
+
+  let streamCancelled = false;
+  const oversizedStream = new ReadableStream<Uint8Array>({
+    start(controller) {
+      controller.enqueue(new Uint8Array(MAX_JSON_BODY_BYTES));
+      controller.enqueue(new Uint8Array(1));
+    },
+    cancel() {
+      streamCancelled = true;
+    },
+  });
+  assert.deepEqual(await parseJsonObject(
+    { headers: new Headers(), body: oversizedStream } as unknown as Pick<Request, 'body' | 'headers'>
+  ), {
+    ok: false,
+    reason: 'too_large',
+  });
+  assert.equal(streamCancelled, true);
+
+  const failingStream = new ReadableStream<Uint8Array>({
+    pull() {
+      throw new Error('request stream failed');
+    },
+  });
+  assert.deepEqual(await parseJsonObject(
+    { headers: new Headers(), body: failingStream } as unknown as Pick<Request, 'body' | 'headers'>
+  ), {
+    ok: false,
+    reason: 'invalid',
+  });
+
+  const exactLimitBody = JSON.stringify({ value: 'é'.repeat((MAX_JSON_BODY_BYTES - 12) / 2) });
+  assert.equal(new TextEncoder().encode(exactLimitBody).byteLength, MAX_JSON_BODY_BYTES);
+  const exactLimitResult = await parseJsonObject(rawRequest<Request>(exactLimitBody));
+  assert.equal(exactLimitResult.ok, true);
 }
 
 const sampleHtml = `
@@ -310,6 +391,38 @@ async function runRouteAssertions() {
   }) as typeof fetch;
 
   try {
+    const oversizedBody = 'x'.repeat(MAX_JSON_BODY_BYTES + 1);
+
+    const analyzeOversized = await analyzeBotPost(
+      rawRequest<Parameters<typeof analyzeBotPost>[0]>(oversizedBody)
+    );
+    assert.equal(analyzeOversized.status, 413);
+    assert.deepEqual(await readJson(analyzeOversized), {
+      error: JSON_BODY_TOO_LARGE_ERROR,
+    });
+
+    const testBotOversized = await testBotPost(
+      rawRequest<Parameters<typeof testBotPost>[0]>(oversizedBody)
+    );
+    assert.equal(testBotOversized.status, 413);
+    assert.deepEqual(await readJson(testBotOversized), {
+      error: JSON_BODY_TOO_LARGE_ERROR,
+    });
+
+    const streamOversized = await streamAnalyzeBotPost(
+      rawRequest<Parameters<typeof streamAnalyzeBotPost>[0]>(oversizedBody)
+    );
+    assert.equal(streamOversized.status, 413);
+    assert.equal(await streamOversized.text(), JSON_BODY_TOO_LARGE_ERROR);
+
+    const chunkedOversized = await chunkedAnalyzeBotPost(
+      rawRequest<Parameters<typeof chunkedAnalyzeBotPost>[0]>(oversizedBody)
+    );
+    assert.equal(chunkedOversized.status, 413);
+    assert.deepEqual(await readJson(chunkedOversized), {
+      error: JSON_BODY_TOO_LARGE_ERROR,
+    });
+
     const analyzeMalformedJson = await analyzeBotPost(
       malformedJsonRequest<Parameters<typeof analyzeBotPost>[0]>()
     );

@@ -125,6 +125,8 @@ When the required SDK or runtime is unavailable, use static checks and source re
   before making Poe requests.
 - POST API routes reject malformed and non-object JSON request bodies before
   validation, stream creation, or Poe requests.
+- A 64 KiB JSON request body limit bounds application parsing for POST routes;
+  deployments still need platform transport, concurrency, and rate limits.
 - Blank bot descriptions are treated as missing before description scoring.
 - Chunked analysis rejects invalid chunked analysis indexes before creating
   progress streams.
@@ -166,6 +168,8 @@ When the required SDK or runtime is unavailable, use static checks and source re
   metadata request timeout.
 - See `docs/plans/2026-06-13-malformed-json-request-bodies.md` for the shared
   POST request-body boundary.
+- See `docs/plans/2026-06-13-json-request-body-limit.md` for the streamed JSON
+  byte limit and HTTP 413 contract.
 - See `docs/plans/2026-06-08-poe-bot-tester-check-wrapper.md` for the root
   check wrapper.
 - See `docs/plans/2026-06-09-scripted-baseline-check.md` for the scripted

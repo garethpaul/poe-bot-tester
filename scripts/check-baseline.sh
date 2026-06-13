@@ -46,6 +46,7 @@ for path in \
   "docs/plans/2026-06-12-poe-metadata-fetch-timeout.md" \
   "docs/plans/2026-06-12-next-16-toolchain.md" \
   "docs/plans/2026-06-13-malformed-json-request-bodies.md" \
+  "docs/plans/2026-06-13-json-request-body-limit.md" \
   "scripts/check-baseline.sh"; do
   require_file "$path"
 done
@@ -195,7 +196,16 @@ ROUTE_TESTS="$ROOT_DIR/scripts/test-analyze-bot.ts"
 
 for request_contract in \
   "export const INVALID_JSON_BODY_ERROR = 'Request body must be a JSON object'" \
-  "const body: unknown = await request.json()" \
+  "export const JSON_BODY_TOO_LARGE_ERROR = 'Request body is too large'" \
+  "export const MAX_JSON_BODY_BYTES = 64 * 1024" \
+  "headers.get('content-length')" \
+  "BigInt(contentLength) > BigInt(MAX_JSON_BODY_BYTES)" \
+  "request.body.getReader()" \
+  "totalBytes += value.byteLength" \
+  "totalBytes > MAX_JSON_BODY_BYTES" \
+  "reader.cancel()" \
+  "new TextDecoder('utf-8', { fatal: true })" \
+  "JSON.parse" \
   "typeof body !== 'object'" \
   "Array.isArray(body)"; do
   if ! grep -Fq "$request_contract" "$REQUEST_BODY"; then
@@ -204,10 +214,17 @@ for request_contract in \
   fi
 done
 
+if grep -Fq "request.json()" "$REQUEST_BODY"; then
+  printf '%s\n' "request-body.ts must enforce the byte limit before JSON parsing." >&2
+  exit 1
+fi
+
 for route in "$ANALYZE_ROUTE" "$STREAM_ROUTE" "$CHUNKED_ROUTE" "$TEST_BOT_ROUTE"; do
   if ! grep -Fq "parseJsonObject(request)" "$route" ||
-    ! grep -Fq "INVALID_JSON_BODY_ERROR" "$route"; then
-    printf '%s\n' "$route must reject invalid JSON bodies through the shared parser." >&2
+    ! grep -Fq "INVALID_JSON_BODY_ERROR" "$route" ||
+    ! grep -Fq "JSON_BODY_TOO_LARGE_ERROR" "$route" ||
+    ! grep -Fq "status: oversized ? 413 : 400" "$route"; then
+    printf '%s\n' "$route must reject invalid and oversized JSON bodies through the shared parser." >&2
     exit 1
   fi
 done
@@ -219,9 +236,41 @@ for test_contract in \
   "const streamMalformedJson = await" \
   "const chunkedMalformedJson = await" \
   "const analyzeArrayBody = await" \
+  "declaredOversizedRequest" \
+  "extremelyLargeDeclaredRequest" \
+  "streamCancelled" \
+  "const failingStream = new ReadableStream" \
+  "MAX_JSON_BODY_BYTES - 12" \
+  "const analyzeOversized = await" \
+  "const testBotOversized = await" \
+  "const streamOversized = await" \
+  "const chunkedOversized = await" \
   "fetchCalled"; do
   if ! grep -Fq "$test_contract" "$ROUTE_TESTS"; then
     printf '%s\n' "route tests must preserve the invalid JSON regression: $test_contract" >&2
+    exit 1
+  fi
+done
+
+for document in "$README" "$ROOT_DIR/SECURITY.md" "$ROOT_DIR/VISION.md" "$ROOT_DIR/CHANGES.md"; do
+  if ! grep -Fq "64 KiB JSON request body limit" "$document"; then
+    printf '%s\n' "$document must document the 64 KiB JSON request body limit." >&2
+    exit 1
+  fi
+done
+
+for evidence in \
+  "status: completed" \
+  "Node 20" \
+  "Node 24" \
+  "make check" \
+  "hostile mutations rejected" \
+  "64 KiB" \
+  "stream cancellation" \
+  "git diff --check" \
+  "secret, captured-prompt, generated-artifact, and dependency-drift scan"; do
+  if ! grep -Fq "$evidence" "$DOCS_PLANS/2026-06-13-json-request-body-limit.md"; then
+    printf '%s\n' "JSON request body limit plan must preserve completed evidence: $evidence" >&2
     exit 1
   fi
 done

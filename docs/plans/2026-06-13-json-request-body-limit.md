@@ -1,6 +1,6 @@
 # Bound JSON Request Bodies
 
-status: planned
+status: completed
 
 ## Summary
 
@@ -116,8 +116,28 @@ amplification and gives clients a deterministic failure contract.
 
 ## Work Completed
 
-Pending implementation.
+- Added a shared 64 KiB streamed JSON request body limit with early rejection
+  for oversized declared `Content-Length` values and incremental raw-byte
+  counting for chunked or missing-length requests.
+- Added stable oversized-versus-invalid parser results and mapped all four POST
+  routes to HTTP 413 or the existing HTTP 400 response without starting fetch,
+  analysis, stream, or chunk-session work.
+- Added exact-limit multibyte, declared-length, stream cancellation,
+  stream-failure, malformed-body, route-integration, and no-fetch assertions.
+- Extended the baseline checker and project guidance without changing
+  dependencies, workflows, build configuration, Poe transport behavior, or
+  route response formats.
 
 ## Verification Completed
 
-Pending implementation and verification.
+- Node 20.19.5: clean `npm ci`, lint, typecheck, focused route tests, production
+  build, moderate audit, static baseline, and `make check` passed.
+- Node 24.16.0: clean `npm ci`, lint, typecheck, focused route tests, production
+  build, moderate audit, static baseline, and `make check` passed.
+- The checker passed from an external working directory. Ten hostile mutations rejected
+  changes to the 64 KiB constant, declared-length check,
+  raw-byte counting, stream cancellation, bounded reader, route status,
+  route tests, guidance, plan status, and completed evidence.
+- `git diff --check` passed. The exact-path audit found only the intended
+  implementation, tests, checker, plan, and guidance changes. The secret, captured-prompt, generated-artifact, and dependency-drift scan found no added
+  credentials, artifacts, package changes, or workflow changes.

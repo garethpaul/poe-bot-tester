@@ -43,6 +43,8 @@ API routes trim required user input and reject blank API keys and prompts before
 constructing Poe API requests or bot-page fetches.
 POST API routes reject malformed and non-object JSON request bodies before
 validation, stream creation, or upstream work.
+A 64 KiB JSON request body limit bounds application parsing for POST routes,
+but does not replace platform transport, concurrency, or rate limits.
 Blank bot descriptions should be treated as missing before description scoring
 so whitespace cannot inflate quality results.
 Order-independent Poe metadata parsing should preserve description and profile

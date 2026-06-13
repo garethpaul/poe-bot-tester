@@ -5,16 +5,10 @@ import {
   normalizePoeBotName,
   normalizeRequiredText,
 } from '../poe-bot-name';
+import { INVALID_JSON_BODY_ERROR, parseJsonObject } from '../request-body';
 import { POE_METADATA_TIMEOUT_MS } from '../analyze-bot/scoring';
 
 export const runtime = 'edge';
-
-interface ChunkedAnalysisRequest {
-  botName: string;
-  apiKey: string;
-  chunk?: unknown; // Which chunk to process (0-based)
-  sessionId?: string; // Session to track progress
-}
 
 interface ProgressUpdate {
   type: 'progress' | 'test_start' | 'test_complete' | 'chunk_complete' | 'complete' | 'error';
@@ -1346,7 +1340,17 @@ async function testResponseTime(botName: string, apiKey: string, timestamp: stri
 }
 
 export async function POST(request: NextRequest) {
-  const { botName: rawBotName, apiKey: rawApiKey, chunk: rawChunk = 0, sessionId: providedSessionId }: ChunkedAnalysisRequest = await request.json();
+  const body = await parseJsonObject(request);
+  if (!body) {
+    return NextResponse.json({ error: INVALID_JSON_BODY_ERROR }, { status: 400 });
+  }
+
+  const {
+    botName: rawBotName,
+    apiKey: rawApiKey,
+    chunk: rawChunk = 0,
+    sessionId: providedSessionId,
+  } = body;
   const apiKey = normalizeRequiredText(rawApiKey);
 
   if (!rawBotName || !apiKey) {

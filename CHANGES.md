@@ -1,5 +1,12 @@
 # Changes
 
+## 2026-06-13
+
+- Rejected malformed and non-object JSON request bodies with stable HTTP 400
+  responses before validation, stream creation, or Poe requests.
+- Refreshed the transitive `esbuild` lockfile family to 0.28.1 after the
+  moderate-level audit began rejecting 0.28.0 for two published advisories.
+
 ## 2026-06-12
 
 - Upgraded to Next.js 16.2.9 and React 19.2.7, refreshed the compatible

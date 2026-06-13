@@ -14,6 +14,10 @@ import {
   normalizePoeBotName,
   normalizeRequiredText,
 } from '../src/app/api/poe-bot-name';
+import {
+  INVALID_JSON_BODY_ERROR,
+  parseJsonObject,
+} from '../src/app/api/request-body';
 import { POST as testBotPost } from '../src/app/api/test-bot/route';
 import { GET as testFilesGet } from '../src/app/api/test-files/route';
 
@@ -25,8 +29,26 @@ function jsonRequest<T>(payload: unknown): T {
   return { json: async () => payload } as T;
 }
 
+function malformedJsonRequest<T>(): T {
+  return {
+    json: async () => {
+      throw new SyntaxError('Unexpected end of JSON input');
+    },
+  } as T;
+}
+
 async function readJson(response: Response): Promise<unknown> {
   return response.json();
+}
+
+async function runRequestBodyAssertions() {
+  assert.deepEqual(await parseJsonObject(jsonRequest<Pick<Request, 'json'>>({ ok: true })), {
+    ok: true,
+  });
+  assert.equal(await parseJsonObject(malformedJsonRequest<Pick<Request, 'json'>>()), null);
+  assert.equal(await parseJsonObject(jsonRequest<Pick<Request, 'json'>>([])), null);
+  assert.equal(await parseJsonObject(jsonRequest<Pick<Request, 'json'>>('text')), null);
+  assert.equal(await parseJsonObject(jsonRequest<Pick<Request, 'json'>>(null)), null);
 }
 
 const sampleHtml = `
@@ -288,6 +310,44 @@ async function runRouteAssertions() {
   }) as typeof fetch;
 
   try {
+    const analyzeMalformedJson = await analyzeBotPost(
+      malformedJsonRequest<Parameters<typeof analyzeBotPost>[0]>()
+    );
+    assert.equal(analyzeMalformedJson.status, 400);
+    assert.deepEqual(await readJson(analyzeMalformedJson), {
+      error: INVALID_JSON_BODY_ERROR,
+    });
+
+    const testBotMalformedJson = await testBotPost(
+      malformedJsonRequest<Parameters<typeof testBotPost>[0]>()
+    );
+    assert.equal(testBotMalformedJson.status, 400);
+    assert.deepEqual(await readJson(testBotMalformedJson), {
+      error: INVALID_JSON_BODY_ERROR,
+    });
+
+    const streamMalformedJson = await streamAnalyzeBotPost(
+      malformedJsonRequest<Parameters<typeof streamAnalyzeBotPost>[0]>()
+    );
+    assert.equal(streamMalformedJson.status, 400);
+    assert.equal(await streamMalformedJson.text(), INVALID_JSON_BODY_ERROR);
+
+    const chunkedMalformedJson = await chunkedAnalyzeBotPost(
+      malformedJsonRequest<Parameters<typeof chunkedAnalyzeBotPost>[0]>()
+    );
+    assert.equal(chunkedMalformedJson.status, 400);
+    assert.deepEqual(await readJson(chunkedMalformedJson), {
+      error: INVALID_JSON_BODY_ERROR,
+    });
+
+    const analyzeArrayBody = await analyzeBotPost(
+      jsonRequest<Parameters<typeof analyzeBotPost>[0]>([])
+    );
+    assert.equal(analyzeArrayBody.status, 400);
+    assert.deepEqual(await readJson(analyzeArrayBody), {
+      error: INVALID_JSON_BODY_ERROR,
+    });
+
     const analyzeMissingKey = await analyzeBotPost(
       jsonRequest<Parameters<typeof analyzeBotPost>[0]>({ botName: 'HelperBot' })
     );
@@ -538,6 +598,7 @@ async function runTestBotTransportFailureAssertions() {
 }
 
 async function main() {
+  await runRequestBodyAssertions();
   await runRouteAssertions();
   await runTestBotSuccessAssertion();
   await runTestBotTransportFailureAssertions();

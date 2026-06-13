@@ -5,6 +5,7 @@ import {
   normalizePoeBotName,
   normalizeRequiredText,
 } from '../poe-bot-name';
+import { INVALID_JSON_BODY_ERROR, parseJsonObject } from '../request-body';
 
 interface ProgressUpdate {
   type: 'progress' | 'test_start' | 'test_complete' | 'category_start' | 'category_complete' | 'complete' | 'error';
@@ -26,7 +27,12 @@ async function sendProgress(controller: ReadableStreamDefaultController<Uint8Arr
 }
 
 export async function POST(request: NextRequest) {
-  const { botName: rawBotName, apiKey: rawApiKey } = await request.json();
+  const body = await parseJsonObject(request);
+  if (!body) {
+    return new Response(INVALID_JSON_BODY_ERROR, { status: 400 });
+  }
+
+  const { botName: rawBotName, apiKey: rawApiKey } = body;
   const apiKey = normalizeRequiredText(rawApiKey);
 
   if (!rawBotName || !apiKey) {

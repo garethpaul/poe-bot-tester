@@ -41,6 +41,8 @@ For web services, APIs, sockets, or scraping workflows, prioritize reports invol
 
 API routes trim required user input and reject blank API keys and prompts before
 constructing Poe API requests or bot-page fetches.
+POST API routes reject malformed and non-object JSON request bodies before
+validation, stream creation, or upstream work.
 Blank bot descriptions should be treated as missing before description scoring
 so whitespace cannot inflate quality results.
 Order-independent Poe metadata parsing should preserve description and profile

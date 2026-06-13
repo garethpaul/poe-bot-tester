@@ -123,6 +123,8 @@ When the required SDK or runtime is unavailable, use static checks and source re
   request payloads.
 - API routes trim required user input and reject blank API keys and prompts
   before making Poe requests.
+- POST API routes reject malformed and non-object JSON request bodies before
+  validation, stream creation, or Poe requests.
 - Blank bot descriptions are treated as missing before description scoring.
 - Chunked analysis rejects invalid chunked analysis indexes before creating
   progress streams.
@@ -162,6 +164,8 @@ When the required SDK or runtime is unavailable, use static checks and source re
   test-file fixture type validation.
 - See `docs/plans/2026-06-12-poe-metadata-fetch-timeout.md` for the shared Poe
   metadata request timeout.
+- See `docs/plans/2026-06-13-malformed-json-request-bodies.md` for the shared
+  POST request-body boundary.
 - See `docs/plans/2026-06-08-poe-bot-tester-check-wrapper.md` for the root
   check wrapper.
 - See `docs/plans/2026-06-09-scripted-baseline-check.md` for the scripted

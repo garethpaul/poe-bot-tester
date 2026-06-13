@@ -13,13 +13,9 @@ import {
   normalizePoeBotName,
   normalizeRequiredText,
 } from '../poe-bot-name';
+import { INVALID_JSON_BODY_ERROR, parseJsonObject } from '../request-body';
 
 export const runtime = 'edge';
-
-interface AnalyzeBotRequest {
-  botName: string;
-  apiKey: string;
-}
 
 interface BotScorecard {
   botName: string;
@@ -522,7 +518,12 @@ async function testErrorHandling(botName: string, apiKey: string): Promise<TestR
 
 export async function POST(request: NextRequest) {
   try {
-    const { botName: rawBotName, apiKey: rawApiKey }: AnalyzeBotRequest = await request.json();
+    const body = await parseJsonObject(request);
+    if (!body) {
+      return NextResponse.json({ error: INVALID_JSON_BODY_ERROR }, { status: 400 });
+    }
+
+    const { botName: rawBotName, apiKey: rawApiKey } = body;
     const apiKey = normalizeRequiredText(rawApiKey);
 
     if (!rawBotName || !apiKey) {

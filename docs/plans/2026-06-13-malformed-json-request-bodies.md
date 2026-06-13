@@ -1,6 +1,6 @@
 # Malformed JSON Request Bodies
 
-status: planned
+status: completed
 
 ## Summary
 
@@ -79,8 +79,9 @@ Test scenarios:
 
 - Do not change Poe URLs, credentials, request payloads, timeout values,
   scoring, streaming event formats, sessions, chunk definitions, or UI code.
-- Do not add dependencies or alter the lockfile, workflow, Next configuration,
-  deployment configuration, or environment contract.
+- Do not add direct dependencies or alter the workflow, Next configuration,
+  deployment configuration, or environment contract. A lockfile-only
+  transitive security refresh is allowed when required by the audit gate.
 - Do not convert all route errors to one serialization format.
 
 ## Verification Plan
@@ -94,3 +95,30 @@ Test scenarios:
   contracts
 - exact-path and protected-path diff audit, `git diff --check`, and secret,
   captured-prompt, generated-artifact, and dependency-drift scans
+
+## Work Completed
+
+- Added one shared JSON-object request parser and integrated it into all four
+  POST routes before field validation, stream creation, or upstream work.
+- Added deterministic malformed and non-object body regressions while
+  preserving route-specific JSON and text response formats.
+- Updated guidance and the baseline checker, and refreshed the transitive
+  `esbuild` lockfile family to 0.28.1 after the audit began rejecting 0.28.0.
+
+## Verification Completed
+
+- Node 20 and Node 24 passed clean installation, dependency graph validation,
+  every Make target including `make check`, production build, and the
+  moderate-level audit.
+- `esbuild 0.28.1` resolved the published high- and low-severity advisories;
+  `package.json` and the direct dependency set remained unchanged.
+- Focused malformed and non-object route assertions passed and proved the
+  injected fetch spy remained untouched.
+- The checker passed from an external working directory, and package, lockfile,
+  workflow, configuration, and SVG files parsed.
+- 10 hostile mutations rejected parser, route, test, guidance, lockfile,
+  status, and evidence drift.
+- The protected runtime paths had only the intended request-boundary diff.
+- `git diff --check` passed.
+- The secret, captured-prompt, generated-artifact, and dependency-drift scan
+  found no prohibited content or unintended artifacts in the intended paths.

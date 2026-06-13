@@ -26,6 +26,7 @@ Priority:
 - Make chunked and streaming analysis behavior easy to trace
 - Validate Poe bot names before upstream fetches or model requests
 - Reject blank API keys and prompts before upstream Poe requests
+- Reject malformed and non-object JSON request bodies before route work
 - Keep description scoring criteria and passing scores aligned
 - Keep blank bot descriptions treated as missing before scoring
 - Keep order-independent Poe metadata parsing covered by deterministic tests

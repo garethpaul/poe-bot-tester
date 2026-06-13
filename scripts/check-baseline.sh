@@ -31,10 +31,13 @@ for path in \
   "package-lock.json" \
   "tsconfig.json" \
   "scripts/test-analyze-bot.ts" \
+  "src/app/api/request-body.ts" \
   "src/app/api/analyze-bot-chunked/route.ts" \
+  "src/app/api/analyze-bot-stream/route.ts" \
   "src/app/api/analyze-bot-stream/bot-analyzer.ts" \
   "src/app/api/analyze-bot/route.ts" \
   "src/app/api/analyze-bot/scoring.ts" \
+  "src/app/api/test-bot/route.ts" \
   "docs/plans/2026-06-08-poe-bot-tester-check-wrapper.md" \
   "docs/plans/2026-06-10-ci-baseline.md" \
   "docs/plans/2026-06-09-scripted-baseline-check.md" \
@@ -42,6 +45,7 @@ for path in \
   "docs/plans/2026-06-10-poe-bot-tester-transport-errors.md" \
   "docs/plans/2026-06-12-poe-metadata-fetch-timeout.md" \
   "docs/plans/2026-06-12-next-16-toolchain.md" \
+  "docs/plans/2026-06-13-malformed-json-request-bodies.md" \
   "scripts/check-baseline.sh"; do
   require_file "$path"
 done
@@ -58,6 +62,11 @@ for framework_contract in \
     exit 1
   fi
 done
+
+if ! node -e 'const lock = require(process.argv[1]); process.exit(lock.packages?.["node_modules/esbuild"]?.version === "0.28.1" ? 0 : 1)' "$ROOT_DIR/package-lock.json"; then
+  printf '%s\n' "package-lock.json must preserve the reviewed esbuild 0.28.1 security fix." >&2
+  exit 1
+fi
 
 if grep -Fq '"@eslint/eslintrc"' "$PACKAGE_JSON"; then
   printf '%s\n' "package.json must not restore the obsolete direct FlatCompat dependency." >&2
@@ -179,6 +188,66 @@ SCORING="$ROOT_DIR/src/app/api/analyze-bot/scoring.ts"
 ANALYZE_ROUTE="$ROOT_DIR/src/app/api/analyze-bot/route.ts"
 STREAM_ANALYZER="$ROOT_DIR/src/app/api/analyze-bot-stream/bot-analyzer.ts"
 CHUNKED_ROUTE="$ROOT_DIR/src/app/api/analyze-bot-chunked/route.ts"
+STREAM_ROUTE="$ROOT_DIR/src/app/api/analyze-bot-stream/route.ts"
+TEST_BOT_ROUTE="$ROOT_DIR/src/app/api/test-bot/route.ts"
+REQUEST_BODY="$ROOT_DIR/src/app/api/request-body.ts"
+ROUTE_TESTS="$ROOT_DIR/scripts/test-analyze-bot.ts"
+
+for request_contract in \
+  "export const INVALID_JSON_BODY_ERROR = 'Request body must be a JSON object'" \
+  "const body: unknown = await request.json()" \
+  "typeof body !== 'object'" \
+  "Array.isArray(body)"; do
+  if ! grep -Fq "$request_contract" "$REQUEST_BODY"; then
+    printf '%s\n' "request-body.ts must preserve the JSON-object boundary: $request_contract" >&2
+    exit 1
+  fi
+done
+
+for route in "$ANALYZE_ROUTE" "$STREAM_ROUTE" "$CHUNKED_ROUTE" "$TEST_BOT_ROUTE"; do
+  if ! grep -Fq "parseJsonObject(request)" "$route" ||
+    ! grep -Fq "INVALID_JSON_BODY_ERROR" "$route"; then
+    printf '%s\n' "$route must reject invalid JSON bodies through the shared parser." >&2
+    exit 1
+  fi
+done
+
+for test_contract in \
+  "malformedJsonRequest" \
+  "const analyzeMalformedJson = await" \
+  "const testBotMalformedJson = await" \
+  "const streamMalformedJson = await" \
+  "const chunkedMalformedJson = await" \
+  "const analyzeArrayBody = await" \
+  "fetchCalled"; do
+  if ! grep -Fq "$test_contract" "$ROUTE_TESTS"; then
+    printf '%s\n' "route tests must preserve the invalid JSON regression: $test_contract" >&2
+    exit 1
+  fi
+done
+
+for document in "$README" "$ROOT_DIR/SECURITY.md" "$ROOT_DIR/VISION.md" "$ROOT_DIR/CHANGES.md"; do
+  if ! grep -Fq "malformed and non-object JSON request bodies" "$document"; then
+    printf '%s\n' "$document must document malformed and non-object JSON request bodies." >&2
+    exit 1
+  fi
+done
+
+for evidence in \
+  "status: completed" \
+  "Node 20" \
+  "Node 24" \
+  "esbuild 0.28.1" \
+  "make check" \
+  "hostile mutations rejected" \
+  "protected runtime paths had only the intended request-boundary diff" \
+  "git diff --check" \
+  "secret, captured-prompt, generated-artifact, and dependency-drift scan"; do
+  if ! grep -Fq "$evidence" "$DOCS_PLANS/2026-06-13-malformed-json-request-bodies.md"; then
+    printf '%s\n' "malformed JSON plan must preserve completed evidence: $evidence" >&2
+    exit 1
+  fi
+done
 
 if ! grep -Fq "export const POE_METADATA_TIMEOUT_MS = 5000" "$SCORING"; then
   printf '%s\n' "scoring.ts must export the shared five-second Poe metadata timeout." >&2

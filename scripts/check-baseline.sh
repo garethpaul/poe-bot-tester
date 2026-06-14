@@ -48,8 +48,24 @@ for path in \
   "docs/plans/2026-06-13-malformed-json-request-bodies.md" \
   "docs/plans/2026-06-13-json-request-body-limit.md" \
   "docs/plans/2026-06-13-score-aggregation.md" \
+  "docs/plans/2026-06-14-location-independent-make.md" \
   "scripts/check-baseline.sh"; do
   require_file "$path"
+done
+
+for evidence in \
+  'status: completed' \
+  'Node 20.19.5' \
+  'Node 24.16.0' \
+  'absolute Makefile path from /tmp' \
+  'REPO_ROOT=/tmp' \
+  'eight isolated hostile mutations' \
+  'git diff --check' \
+  'credential-pattern'; do
+  if ! grep -Fq "$evidence" "$DOCS_PLANS/2026-06-14-location-independent-make.md"; then
+    printf '%s\n' "Location-independent Make plan must preserve evidence: $evidence" >&2
+    exit 1
+  fi
 done
 
 for framework_contract in \
@@ -139,14 +155,24 @@ if [ "$(tr -d '\r' < "$ROOT_DIR/.github/CODEOWNERS")" != "* @garethpaul" ]; then
   exit 1
 fi
 
-if ! grep -Fq "scripts/check-baseline.sh" "$MAKEFILE"; then
-  printf '%s\n' "Makefile must run scripts/check-baseline.sh from make check." >&2
-  exit 1
-fi
-
 for target in "lint:" "typecheck:" "test:" "build:" "audit:" "verify:" "check:"; do
   if ! grep -Fq "$target" "$MAKEFILE"; then
     printf '%s\n' "Makefile must expose the $target gate." >&2
+    exit 1
+  fi
+done
+
+for make_contract in \
+  'override REPO_ROOT := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))' \
+  'cd "$(REPO_ROOT)" && $(NPM) run lint' \
+  'cd "$(REPO_ROOT)" && $(NPM) run typecheck' \
+  'cd "$(REPO_ROOT)" && $(NPM) test' \
+  'cd "$(REPO_ROOT)" && $(NPM) run build' \
+  'cd "$(REPO_ROOT)" && $(NPM) run audit' \
+  'cd "$(REPO_ROOT)" && $(NPM) run verify' \
+  'cd "$(REPO_ROOT)" && scripts/check-baseline.sh'; do
+  if ! grep -Fq "$make_contract" "$MAKEFILE"; then
+    printf '%s\n' "Makefile must remain caller-directory independent: $make_contract" >&2
     exit 1
   fi
 done

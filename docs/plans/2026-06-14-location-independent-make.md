@@ -6,7 +6,7 @@ date: 2026-06-14
 
 # Location-Independent Make Gates
 
-status: planned
+status: completed
 
 ## Summary
 
@@ -84,3 +84,26 @@ record completed evidence after final validation.
 Completion requires all Make aliases from the repository root, external full
 checks on Node 20 and 24 with override resistance, eight isolated hostile
 mutations, successful Next.js production builds, and clean safety audits.
+
+## Work Completed
+
+- Added an override-protected repository root and used it for lint, typecheck,
+  test, build, audit, verify, and portable-checker execution without changing
+  the target graph.
+- Extended the baseline checker to require the root declaration and all seven
+  rooted recipes exactly.
+- Preserved application sources, dependencies, lockfile, framework and compiler
+  configuration, workflow, and generated-cache cleanup behavior.
+
+## Verification Completed
+
+- Node 20.19.5 and Node 24.16.0 passed lint, typecheck, deterministic tests,
+  Next.js 16.2.9 production builds, and moderate audits with zero known
+  vulnerabilities.
+- Both runtimes passed the absolute Makefile path from /tmp verification with a
+  hostile `REPO_ROOT=/tmp` override, proving repository-owned root selection.
+- The checker rejected eight isolated hostile mutations covering root
+  derivation and every rooted recipe after a disposable baseline passed.
+- Portable shell syntax, `git diff --check`, intended-path, generated-artifact,
+  credential-pattern, dependency-state, and protected source/config/workflow
+  checks passed.

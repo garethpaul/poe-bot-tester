@@ -31,6 +31,8 @@ for path in \
   "package-lock.json" \
   "tsconfig.json" \
   "scripts/test-analyze-bot.ts" \
+  "scripts/test-sse-data-decoder.ts" \
+  "src/app/sse-data-decoder.ts" \
   "src/app/api/request-body.ts" \
   "src/app/api/analyze-bot-chunked/route.ts" \
   "src/app/api/analyze-bot-stream/route.ts" \
@@ -49,6 +51,7 @@ for path in \
   "docs/plans/2026-06-13-json-request-body-limit.md" \
   "docs/plans/2026-06-13-score-aggregation.md" \
   "docs/plans/2026-06-14-location-independent-make.md" \
+  "docs/plans/2026-06-14-buffer-split-sse-records.md" \
   "scripts/check-baseline.sh"; do
   require_file "$path"
 done
@@ -64,6 +67,21 @@ for evidence in \
   'credential-pattern'; do
   if ! grep -Fq "$evidence" "$DOCS_PLANS/2026-06-14-location-independent-make.md"; then
     printf '%s\n' "Location-independent Make plan must preserve evidence: $evidence" >&2
+    exit 1
+  fi
+done
+
+for evidence in \
+  'status: completed' \
+  'every character and byte boundary' \
+  'Next.js 16.2.9 production build' \
+  'zero vulnerabilities' \
+  'absolute Makefile path from `/tmp`' \
+  'Six isolated hostile mutations were rejected' \
+  '`git diff --check`' \
+  'credential-pattern audits completed without findings'; do
+  if ! grep -Fq "$evidence" "$DOCS_PLANS/2026-06-14-buffer-split-sse-records.md"; then
+    printf '%s\n' "Buffered SSE plan must preserve completed evidence: $evidence" >&2
     exit 1
   fi
 done
@@ -180,7 +198,7 @@ done
 for package_script in \
   '"lint": "eslint ."' \
   '"typecheck": "tsc --noEmit"' \
-  '"test": "tsx scripts/test-analyze-bot.ts"' \
+  '"test": "tsx scripts/test-analyze-bot.ts && tsx scripts/test-sse-data-decoder.ts"' \
   '"audit": "npm audit --audit-level=moderate"' \
   '"verify": "npm run lint && npm run typecheck && npm test && npm run build && npm run audit"'; do
   if ! grep -Fq "$package_script" "$PACKAGE_JSON"; then
@@ -220,6 +238,48 @@ STREAM_ROUTE="$ROOT_DIR/src/app/api/analyze-bot-stream/route.ts"
 TEST_BOT_ROUTE="$ROOT_DIR/src/app/api/test-bot/route.ts"
 REQUEST_BODY="$ROOT_DIR/src/app/api/request-body.ts"
 ROUTE_TESTS="$ROOT_DIR/scripts/test-analyze-bot.ts"
+PAGE="$ROOT_DIR/src/app/page.tsx"
+SSE_DECODER="$ROOT_DIR/src/app/sse-data-decoder.ts"
+SSE_TESTS="$ROOT_DIR/scripts/test-sse-data-decoder.ts"
+
+for decoder_contract in \
+  "export class SseDataDecoder" \
+  "private bufferedLine = ''" \
+  'this.bufferedLine.split(/\r?\n/)' \
+  "finish(): T[]" \
+  "line.startsWith('data:')" \
+  "JSON.parse(encoded)" \
+  "typeof parsed !== 'object'" \
+  "Array.isArray(parsed)"; do
+  if ! grep -Fq "$decoder_contract" "$SSE_DECODER"; then
+    printf '%s\n' "SSE decoder must preserve buffered record parsing: $decoder_contract" >&2
+    exit 1
+  fi
+done
+
+for page_contract in \
+  "new SseDataDecoder<ProgressUpdate>()" \
+  "decoder.decode(value, { stream: true })" \
+  "sseDecoder.push(chunk)" \
+  "sseDecoder.finish()"; do
+  if ! grep -Fq "$page_contract" "$PAGE"; then
+    printf '%s\n' "page.tsx must preserve buffered SSE integration: $page_contract" >&2
+    exit 1
+  fi
+done
+
+for test_contract in \
+  "for (let split = 1; split < record.length; split += 1)" \
+  "new TextEncoder().encode(record)" \
+  "event: progress\\r\\ndata:" \
+  'data: null\ndata: "text"\ndata: []' \
+  "trailing.finish()" \
+  "incomplete.finish()"; do
+  if ! grep -Fq "$test_contract" "$SSE_TESTS"; then
+    printf '%s\n' "SSE decoder tests must preserve split-record coverage: $test_contract" >&2
+    exit 1
+  fi
+done
 
 for scoring_contract in \
   "export function calculateOverallScore" \

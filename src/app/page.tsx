@@ -2,6 +2,8 @@
 
 import { useState } from 'react';
 
+import { SseDataDecoder } from './sse-data-decoder';
+
 interface TestResult {
   name: string;
   status: 'passed' | 'failed' | 'pending' | 'running';
@@ -44,6 +46,19 @@ interface ProgressState {
     fileSupport: TestResult[];
     errorHandling: TestResult[];
   };
+}
+
+interface ProgressUpdate {
+  type: string;
+  category?: string;
+  testName?: string;
+  message?: string;
+  result?: TestResult;
+  progress?: number;
+  currentTest?: number;
+  totalTests?: number;
+  sessionId?: string;
+  nextChunk?: number;
 }
 
 // Component for displaying individual test results with expandable details
@@ -207,55 +222,61 @@ export default function Home() {
 
       const reader = response.body?.getReader();
       const decoder = new TextDecoder();
+      const sseDecoder = new SseDataDecoder<ProgressUpdate>();
 
       if (!reader) {
         throw new Error('No response body');
       }
 
       let currentSessionId = sessionId;
-      let nextChunk = null;
+      let nextChunk: number | null = null;
+
+      const processUpdate = (data: ProgressUpdate): boolean => {
+        if (data.sessionId && !currentSessionId) {
+          currentSessionId = data.sessionId;
+        }
+
+        if (data.type === 'chunk_complete' && data.nextChunk !== undefined) {
+          nextChunk = data.nextChunk;
+        }
+
+        handleProgressUpdate(data);
+
+        if (data.type === 'complete') {
+          setIsRunning(false);
+          return true;
+        }
+
+        return false;
+      };
 
       while (true) {
         const { value, done } = await reader.read();
-        if (done) break;
+        if (done) {
+          const finalText = decoder.decode();
+          const finalUpdates = [
+            ...sseDecoder.push(finalText),
+            ...sseDecoder.finish(),
+          ];
 
-        const chunk = decoder.decode(value);
-        const lines = chunk.split('\n');
-
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            try {
-              const data = JSON.parse(line.slice(6));
-              
-              // Update session ID if provided
-              if (data.sessionId && !currentSessionId) {
-                currentSessionId = data.sessionId;
-              }
-              
-              // Check for chunk completion
-              if (data.type === 'chunk_complete' && data.nextChunk !== undefined) {
-                nextChunk = data.nextChunk;
-              }
-              
-              handleProgressUpdate(data);
-              
-              // If analysis is complete, stop here
-              if (data.type === 'complete') {
-                setIsRunning(false);
-                return;
-              }
-              
-            } catch (e) {
-              console.log('Failed to parse SSE data:', e);
-            }
+          for (const data of finalUpdates) {
+            if (processUpdate(data)) return;
           }
+
+          break;
+        }
+
+        const chunk = decoder.decode(value, { stream: true });
+        for (const data of sseDecoder.push(chunk)) {
+          if (processUpdate(data)) return;
         }
       }
 
       // If we have a next chunk, continue the analysis
       if (nextChunk !== null) {
+        const scheduledChunk = nextChunk;
         setTimeout(() => {
-          runChunkedAnalysis(nextChunk, currentSessionId);
+          runChunkedAnalysis(scheduledChunk, currentSessionId);
         }, 1000); // Small delay before next chunk
       } else {
         setIsRunning(false);
@@ -282,7 +303,7 @@ export default function Home() {
     }
   };
 
-  const handleProgressUpdate = (data: { type: string; category?: string; testName?: string; message?: string; result?: TestResult; progress?: number; currentTest?: number; totalTests?: number }) => {
+  const handleProgressUpdate = (data: ProgressUpdate) => {
     switch (data.type) {
       case 'progress':
         setProgressState(prev => prev ? {

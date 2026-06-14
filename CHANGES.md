@@ -1,5 +1,11 @@
 # Changes
 
+## 2026-06-14
+
+- Buffered browser-side SSE data across network chunk boundaries so split JSON
+  progress and completion records are delivered exactly once instead of being
+  discarded as malformed fragments.
+
 ## 2026-06-13
 
 - Shared overall score aggregation across all analyzer modes and added focused

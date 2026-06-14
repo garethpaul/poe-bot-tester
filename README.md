@@ -175,6 +175,8 @@ When the required SDK or runtime is unavailable, use static checks and source re
   POST request-body boundary.
 - See `docs/plans/2026-06-13-json-request-body-limit.md` for the streamed JSON
   byte limit and HTTP 413 contract.
+- See `docs/plans/2026-06-14-buffer-split-sse-records.md` for buffered browser
+  parsing that preserves SSE data records split across network chunks.
 - See `docs/plans/2026-06-08-poe-bot-tester-check-wrapper.md` for the root
   check wrapper.
 - See `docs/plans/2026-06-09-scripted-baseline-check.md` for the scripted

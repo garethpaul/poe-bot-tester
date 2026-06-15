@@ -2,7 +2,10 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
 import { POST as analyzeBotPost } from '../src/app/api/analyze-bot/route';
-import { POST as chunkedAnalyzeBotPost } from '../src/app/api/analyze-bot-chunked/route';
+import {
+  POST as chunkedAnalyzeBotPost,
+  SESSION_BOT_MISMATCH_ERROR,
+} from '../src/app/api/analyze-bot-chunked/route';
 import { POST as streamAnalyzeBotPost } from '../src/app/api/analyze-bot-stream/route';
 import {
   analyzeBotName,
@@ -288,6 +291,7 @@ const deterministicStreamPlan = readProjectFile('docs/plans/2026-06-09-poe-bot-t
 const chunkIndexPlan = readProjectFile('docs/plans/2026-06-09-poe-bot-tester-chunk-index-validation.md');
 const metadataAttributePlan = readProjectFile('docs/plans/2026-06-09-poe-bot-tester-meta-attribute-order.md');
 const sessionIdPlan = readProjectFile('docs/plans/2026-06-09-poe-bot-tester-session-id-validation.md');
+const sessionBotBindingPlan = readProjectFile('docs/plans/2026-06-15-chunk-session-bot-binding.md');
 const testFileTypePlan = readProjectFile('docs/plans/2026-06-10-poe-bot-tester-test-file-type-validation.md');
 const metadataTimeoutPlan = readProjectFile('docs/plans/2026-06-12-poe-metadata-fetch-timeout.md');
 
@@ -361,6 +365,14 @@ assert.match(sessionIdPlan, /status: completed/);
 assert.match(sessionIdPlan, /normalizeChunkSessionId/);
 assert.match(sessionIdPlan, /session map/);
 assert.match(sessionIdPlan, /npm test/);
+assert.match(chunkedRouteSource, /function acquireSession/);
+assert.match(chunkedRouteSource, /existingSession\.botName === botName \? existingSession : null/);
+assert.match(chunkedRouteSource, /SESSION_BOT_MISMATCH_ERROR[\s\S]*status: 409/);
+assert.match(sessionBotBindingPlan, /Bind each active chunk session/);
+assert.match(sessionBotBindingPlan, /before creating an\s+SSE response/);
+assert.match(sessionBotBindingPlan, /status: completed/i);
+assert.match(sessionBotBindingPlan, /Eight isolated hostile mutations were rejected/);
+assert.match(sessionBotBindingPlan, /make check/);
 assert.match(scoringSource, /metadata\.description\.trim\(\)/);
 assert.match(scoringSource, /function findMetaContent/);
 assert.match(scoringSource, /function findAttribute/);
@@ -666,6 +678,62 @@ async function runTestBotSuccessAssertion() {
   }
 }
 
+async function runChunkSessionBotBindingAssertion() {
+  const originalFetch = globalThis.fetch;
+  let fetchCount = 0;
+
+  globalThis.fetch = (async () => {
+    fetchCount += 1;
+    return new Response(sampleHtml, { status: 200 });
+  }) as typeof fetch;
+
+  try {
+    const sessionId = 'bot-binding-session';
+    const initialResponse = await chunkedAnalyzeBotPost(
+      jsonRequest<Parameters<typeof chunkedAnalyzeBotPost>[0]>({
+        botName: 'HelperBot',
+        apiKey: 'test-key',
+        chunk: 0,
+        sessionId,
+      })
+    );
+
+    assert.equal(initialResponse.status, 200);
+    await initialResponse.text();
+    assert.equal(fetchCount, 1);
+
+    const continuationResponse = await chunkedAnalyzeBotPost(
+      jsonRequest<Parameters<typeof chunkedAnalyzeBotPost>[0]>({
+        botName: 'HelperBot',
+        apiKey: 'test-key',
+        chunk: 0,
+        sessionId,
+      })
+    );
+
+    assert.equal(continuationResponse.status, 200);
+    await continuationResponse.text();
+    assert.equal(fetchCount, 1);
+
+    const mismatchedResponse = await chunkedAnalyzeBotPost(
+      jsonRequest<Parameters<typeof chunkedAnalyzeBotPost>[0]>({
+        botName: 'AnotherBot',
+        apiKey: 'test-key',
+        chunk: 0,
+        sessionId,
+      })
+    );
+
+    assert.equal(mismatchedResponse.status, 409);
+    assert.deepEqual(await readJson(mismatchedResponse), {
+      error: SESSION_BOT_MISMATCH_ERROR,
+    });
+    assert.equal(fetchCount, 1);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+}
+
 async function runTestBotTransportFailureAssertions() {
   const originalFetch = globalThis.fetch;
   const originalConsoleError = console.error;
@@ -723,6 +791,7 @@ async function runTestBotTransportFailureAssertions() {
 async function main() {
   await runRequestBodyAssertions();
   await runRouteAssertions();
+  await runChunkSessionBotBindingAssertion();
   await runTestBotSuccessAssertion();
   await runTestBotTransportFailureAssertions();
 }

@@ -1,6 +1,6 @@
 # Chunk Session Bot Binding
 
-Status: In Progress
+Status: Completed
 
 ## Problem
 
@@ -29,12 +29,18 @@ can mix results across analyses and produce a scorecard for the wrong bot.
 - Do not require live Poe credentials or network access for tests.
 - Do not merge or close stacked pull requests without explicit authorization.
 
-## Verification: Pending
+## Verification: Completed
 
-- Run the focused route suite and the full deterministic package gate.
-- Run lint, typecheck, production build, dependency audit, and full `make check`
-  from the repository and via the absolute Makefile path externally.
-- Reject focused hostile mutations covering the ownership predicate, conflict
-  status, pre-stream ordering, test wiring, and completed plan evidence.
-- Audit the final intended diff, generated artifacts, credentials, conflict
-  markers, and whitespace before commit.
+- The focused route suite passed initial session acquisition, same-bot
+  continuation, cross-bot conflict, and no-fetch-on-conflict assertions.
+- Lint, typecheck, all deterministic tests, the Next.js 16.2.9 production
+  build, and the zero-vulnerability dependency audit passed.
+- Full `make check` passed from the repository root and through the absolute
+  Makefile path from `/tmp`.
+- Eight isolated hostile mutations were rejected across bot ownership,
+  conflict handling, pre-stream session wiring, runtime test invocation,
+  no-fetch assertions, and completed plan evidence.
+- Final `git diff --check`, generated-artifact, credential-pattern,
+  conflict-marker, and dependency-drift audits passed for the intended paths.
+- Tests use deterministic local responses and do not require live Poe
+  credentials or network access.

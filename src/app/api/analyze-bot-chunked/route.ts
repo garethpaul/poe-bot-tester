@@ -94,6 +94,7 @@ const INVALID_CHUNK_INDEX_ERROR = `Chunk must be an integer between 0 and ${MAX_
 const CHUNK_SESSION_ID_PATTERN = /^[A-Za-z0-9_-]{1,96}$/;
 const INVALID_SESSION_ID_ERROR =
   'Session ID may only contain letters, numbers, underscores, and hyphens';
+export const SESSION_BOT_MISMATCH_ERROR = 'Session ID is already in use for another bot';
 
 function normalizeChunkIndex(value: unknown): number | null {
   if (typeof value !== 'number' || !Number.isInteger(value)) return null;
@@ -128,6 +129,27 @@ interface SessionData {
 // Simple in-memory session storage for demo (use Redis/DB in production)
 const sessions = new Map<string, SessionData>();
 
+function acquireSession(sessionId: string, botName: string): SessionData | null {
+  const existingSession = sessions.get(sessionId);
+  if (existingSession) {
+    return existingSession.botName === botName ? existingSession : null;
+  }
+
+  const sessionData: SessionData = {
+    botName,
+    results: {
+      branding: [],
+      functionality: [],
+      usability: [],
+      fileSupport: [],
+      errorHandling: []
+    },
+    metadata: null
+  };
+  sessions.set(sessionId, sessionData);
+  return sessionData;
+}
+
 async function sendProgress(controller: ReadableStreamDefaultController<Uint8Array>, update: ProgressUpdate) {
   const data = `data: ${JSON.stringify(update)}\n\n`;
   controller.enqueue(new TextEncoder().encode(data));
@@ -138,6 +160,7 @@ async function processChunk(
   apiKey: string,
   chunkIndex: number,
   sessionId: string,
+  sessionData: SessionData,
   controller: ReadableStreamDefaultController<Uint8Array>
 ): Promise<void> {
   const chunk = TEST_CHUNKS[chunkIndex];
@@ -151,23 +174,6 @@ async function processChunk(
     totalTests: TEST_CHUNKS.length,
     sessionId
   });
-
-  // Get or create session data
-  let sessionData = sessions.get(sessionId);
-  if (!sessionData) {
-    sessionData = {
-      botName,
-      results: {
-        branding: [],
-        functionality: [],
-        usability: [],
-        fileSupport: [],
-        errorHandling: []
-      },
-      metadata: null
-    };
-    sessions.set(sessionId, sessionData);
-  }
 
   // Process each test in the chunk with timeout awareness
   const startTime = Date.now();
@@ -1379,10 +1385,15 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: INVALID_SESSION_ID_ERROR }, { status: 400 });
   }
 
+  const sessionData = acquireSession(sessionId, botName);
+  if (!sessionData) {
+    return NextResponse.json({ error: SESSION_BOT_MISMATCH_ERROR }, { status: 409 });
+  }
+
   const stream = new ReadableStream({
     async start(controller) {
       try {
-        await processChunk(botName, apiKey, chunk, sessionId, controller);
+        await processChunk(botName, apiKey, chunk, sessionId, sessionData, controller);
       } catch (error) {
         await sendProgress(controller, {
           type: 'error',

@@ -8,6 +8,9 @@ PACKAGE_JSON="$ROOT_DIR/package.json"
 GITIGNORE="$ROOT_DIR/.gitignore"
 DOCS_PLANS="$ROOT_DIR/docs/plans"
 CI_WORKFLOW="$ROOT_DIR/.github/workflows/check.yml"
+CHUNKED_ROUTE="$ROOT_DIR/src/app/api/analyze-bot-chunked/route.ts"
+ANALYZE_BOT_TEST="$ROOT_DIR/scripts/test-analyze-bot.ts"
+SESSION_BOT_BINDING_PLAN="$DOCS_PLANS/2026-06-15-chunk-session-bot-binding.md"
 
 require_file() {
   path=$1
@@ -54,6 +57,48 @@ for path in \
   "docs/plans/2026-06-14-buffer-split-sse-records.md" \
   "scripts/check-baseline.sh"; do
   require_file "$path"
+done
+
+for route_contract in \
+  'function acquireSession' \
+  'existingSession.botName === botName ? existingSession : null' \
+  'const sessionData = acquireSession(sessionId, botName);' \
+  'return NextResponse.json({ error: SESSION_BOT_MISMATCH_ERROR }, { status: 409 });' \
+  'await processChunk(botName, apiKey, chunk, sessionId, sessionData, controller);'; do
+  if ! grep -Fq "$route_contract" "$CHUNKED_ROUTE"; then
+    printf '%s\n' "Chunk sessions must remain bound to their originating bot: $route_contract" >&2
+    exit 1
+  fi
+done
+
+acquire_line=$(grep -nF 'const sessionData = acquireSession(sessionId, botName);' "$CHUNKED_ROUTE" | cut -d: -f1)
+stream_line=$(grep -nF 'const stream = new ReadableStream({' "$CHUNKED_ROUTE" | cut -d: -f1)
+if [ -z "$acquire_line" ] || [ -z "$stream_line" ] || [ "$acquire_line" -ge "$stream_line" ]; then
+  printf '%s\n' 'Chunk sessions must be acquired before SSE stream construction.' >&2
+  exit 1
+fi
+
+for test_contract in \
+  'async function runChunkSessionBotBindingAssertion()' \
+  'assert.equal(mismatchedResponse.status, 409);' \
+  'assert.equal(fetchCount, 1);' \
+  'await runChunkSessionBotBindingAssertion();'; do
+  if ! grep -Fq "$test_contract" "$ANALYZE_BOT_TEST"; then
+    printf '%s\n' "Chunk session bot binding must retain its regression contract: $test_contract" >&2
+    exit 1
+  fi
+done
+
+for plan_contract in \
+  'Status: Completed' \
+  '## Verification' \
+  'cross-bot conflict' \
+  'hostile mutations' \
+  'make check'; do
+  if ! grep -Fqi "$plan_contract" "$SESSION_BOT_BINDING_PLAN"; then
+    printf '%s\n' "Chunk session bot binding plan must retain completed evidence: $plan_contract" >&2
+    exit 1
+  fi
 done
 
 for evidence in \

@@ -55,6 +55,8 @@ Chunked analysis rejects invalid chunked analysis indexes before creating
 progress streams.
 Chunked analysis rejects invalid chunked analysis session IDs before creating
 progress streams or touching in-memory session state.
+A terminal chunk stream failure releases its exact in-memory session before
+error emission so stale bot ownership does not persist after termination.
 Test-file fixture routes reject unknown test file types, including inherited
 object keys, before decoding fixture data.
 Poe transport errors and timeouts return stable gateway responses without

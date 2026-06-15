@@ -1,11 +1,11 @@
 # Failed Stream Session Cleanup
 
-Status: Planned
+Status: Completed
 
 ## Problem
 
 The final chunk removes its completed in-memory session, but an unexpected
-`processChunk` failure emits an SSE error without releasing the session ID.
+terminal stream failure emits an SSE error without releasing the session ID.
 That stale entry remains bound to its original bot and can reject later reuse
 for a different bot even though the stream has terminated.
 
@@ -40,3 +40,26 @@ for a different bot even though the stream has terminated.
   coverage, guidance, and plan status.
 - Audit the exact diff, generated artifacts, dependencies, credentials,
   conflicts, modes, binaries, and whitespace before commit and push.
+
+## Work Completed
+
+- Released the exact acquired in-memory session before attempting terminal SSE
+  error emission after an unexpected chunk-processing failure.
+- Preserved active continuation, same-bot reuse, active cross-bot conflict, and
+  successful final-session cleanup behavior.
+- Added a deterministic forced-encoder-failure regression, mutation-sensitive
+  static contracts, synchronized guidance, and this evidence record.
+
+## Verification Completed
+
+- The focused failed-stream cleanup proof and complete deterministic test suite
+  passed on Node 20.19.5 and Node 24.16.0.
+- Lint, typecheck, the Next.js 16.2.9 production build, and the exact-lockfile
+  dependency audit passed on both Node lanes; the audit found zero vulnerabilities.
+- Full `make check` passed from the repository root and through the absolute
+  Makefile path from `/tmp` on both Node lanes.
+- Eight isolated hostile mutations were rejected across cleanup presence,
+  identity, ordering, runtime coverage, reuse assertion, guidance, and plan
+  evidence.
+- The exact eight-file implementation diff passed whitespace, generated-artifact,
+  dependency, credential, conflict-marker, binary, mode, and intended-path audits.

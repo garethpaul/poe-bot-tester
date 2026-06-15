@@ -11,6 +11,7 @@ CI_WORKFLOW="$ROOT_DIR/.github/workflows/check.yml"
 CHUNKED_ROUTE="$ROOT_DIR/src/app/api/analyze-bot-chunked/route.ts"
 ANALYZE_BOT_TEST="$ROOT_DIR/scripts/test-analyze-bot.ts"
 SESSION_BOT_BINDING_PLAN="$DOCS_PLANS/2026-06-15-chunk-session-bot-binding.md"
+FAILED_SESSION_CLEANUP_PLAN="$DOCS_PLANS/2026-06-15-failed-stream-session-cleanup.md"
 
 require_file() {
   path=$1
@@ -55,8 +56,56 @@ for path in \
   "docs/plans/2026-06-13-score-aggregation.md" \
   "docs/plans/2026-06-14-location-independent-make.md" \
   "docs/plans/2026-06-14-buffer-split-sse-records.md" \
+  "docs/plans/2026-06-15-failed-stream-session-cleanup.md" \
   "scripts/check-baseline.sh"; do
   require_file "$path"
+done
+
+for cleanup_contract in \
+  'function releaseSession' \
+  'sessions.get(sessionId) === sessionData' \
+  'releaseSession(sessionId, sessionData);'; do
+  if ! grep -Fq "$cleanup_contract" "$CHUNKED_ROUTE"; then
+    printf '%s\n' "Failed chunk streams must release their exact session: $cleanup_contract" >&2
+    exit 1
+  fi
+done
+
+cleanup_line=$(grep -nF 'releaseSession(sessionId, sessionData);' "$CHUNKED_ROUTE" | cut -d: -f1)
+error_line=$(grep -nF 'await sendProgress(controller, {' "$CHUNKED_ROUTE" | tail -1 | cut -d: -f1)
+if [ -z "$cleanup_line" ] || [ -z "$error_line" ] || [ "$cleanup_line" -ge "$error_line" ]; then
+  printf '%s\n' 'Failed chunk session cleanup must precede terminal SSE error emission.' >&2
+  exit 1
+fi
+
+for cleanup_test_contract in \
+  'async function runFailedChunkSessionCleanupAssertion()' \
+  "class FailingTextEncoder" \
+  "botName: 'AnotherBot'" \
+  'assert.match(await reusedResponse.text(), /"type":"complete"/);' \
+  'await runFailedChunkSessionCleanupAssertion();'; do
+  if ! grep -Fq "$cleanup_test_contract" "$ANALYZE_BOT_TEST"; then
+    printf '%s\n' "Failed chunk session cleanup must retain its regression contract: $cleanup_test_contract" >&2
+    exit 1
+  fi
+done
+
+for cleanup_plan_contract in \
+  'Status: Completed' \
+  'terminal stream failure' \
+  'isolated hostile mutations were rejected' \
+  'make check'; do
+  if ! grep -Fqi "$cleanup_plan_contract" "$FAILED_SESSION_CLEANUP_PLAN"; then
+    printf '%s\n' "Failed stream session cleanup plan must retain completed evidence: $cleanup_plan_contract" >&2
+    exit 1
+  fi
+done
+
+for cleanup_doc in "$README" "$ROOT_DIR/SECURITY.md" "$ROOT_DIR/VISION.md" "$ROOT_DIR/CHANGES.md"; do
+  if ! grep -Fiq 'terminal chunk stream failure' "$cleanup_doc"; then
+    printf '%s\n' "Failed stream session cleanup guidance is missing from $cleanup_doc" >&2
+    exit 1
+  fi
 done
 
 for route_contract in \

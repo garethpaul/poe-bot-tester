@@ -3,6 +3,8 @@
 ## 2026-06-15
 
 - Terminal streamed completion cancels the response reader and always releases its lock.
+- Terminal chunk stream failures release their exact in-memory sessions before
+  error emission, preventing stale cross-bot ownership conflicts.
 
 ## 2026-06-14
 

@@ -292,6 +292,7 @@ const chunkIndexPlan = readProjectFile('docs/plans/2026-06-09-poe-bot-tester-chu
 const metadataAttributePlan = readProjectFile('docs/plans/2026-06-09-poe-bot-tester-meta-attribute-order.md');
 const sessionIdPlan = readProjectFile('docs/plans/2026-06-09-poe-bot-tester-session-id-validation.md');
 const sessionBotBindingPlan = readProjectFile('docs/plans/2026-06-15-chunk-session-bot-binding.md');
+const failedSessionCleanupPlan = readProjectFile('docs/plans/2026-06-15-failed-stream-session-cleanup.md');
 const testFileTypePlan = readProjectFile('docs/plans/2026-06-10-poe-bot-tester-test-file-type-validation.md');
 const metadataTimeoutPlan = readProjectFile('docs/plans/2026-06-12-poe-metadata-fetch-timeout.md');
 
@@ -368,11 +369,18 @@ assert.match(sessionIdPlan, /npm test/);
 assert.match(chunkedRouteSource, /function acquireSession/);
 assert.match(chunkedRouteSource, /existingSession\.botName === botName \? existingSession : null/);
 assert.match(chunkedRouteSource, /SESSION_BOT_MISMATCH_ERROR[\s\S]*status: 409/);
+assert.match(chunkedRouteSource, /function releaseSession/);
+assert.match(chunkedRouteSource, /sessions\.get\(sessionId\) === sessionData/);
+assert.match(chunkedRouteSource, /catch \(error\) {[\s\S]*releaseSession\(sessionId, sessionData\);[\s\S]*await sendProgress/);
 assert.match(sessionBotBindingPlan, /Bind each active chunk session/);
 assert.match(sessionBotBindingPlan, /before creating an\s+SSE response/);
 assert.match(sessionBotBindingPlan, /status: completed/i);
 assert.match(sessionBotBindingPlan, /Eight isolated hostile mutations were rejected/);
 assert.match(sessionBotBindingPlan, /make check/);
+assert.match(failedSessionCleanupPlan, /Status: Completed/i);
+assert.match(failedSessionCleanupPlan, /terminal stream failure/i);
+assert.match(failedSessionCleanupPlan, /isolated hostile mutations were rejected/i);
+assert.match(failedSessionCleanupPlan, /make check/);
 assert.match(scoringSource, /metadata\.description\.trim\(\)/);
 assert.match(scoringSource, /function findMetaContent/);
 assert.match(scoringSource, /function findAttribute/);
@@ -734,6 +742,58 @@ async function runChunkSessionBotBindingAssertion() {
   }
 }
 
+async function runFailedChunkSessionCleanupAssertion() {
+  const originalFetch = globalThis.fetch;
+  const originalTextEncoder = globalThis.TextEncoder;
+  let fetchCount = 0;
+
+  class FailingTextEncoder {
+    encode(): Uint8Array {
+      throw new Error('forced terminal stream failure');
+    }
+  }
+
+  try {
+    globalThis.TextEncoder = FailingTextEncoder as unknown as typeof TextEncoder;
+    const sessionId = 'failed-stream-reuse-session';
+    const failedResponse = await chunkedAnalyzeBotPost(
+      jsonRequest<Parameters<typeof chunkedAnalyzeBotPost>[0]>({
+        botName: 'HelperBot',
+        apiKey: 'test-key',
+        chunk: 0,
+        sessionId,
+      })
+    );
+
+    assert.equal(failedResponse.status, 200);
+    assert.equal(await failedResponse.text(), '');
+
+    globalThis.TextEncoder = originalTextEncoder;
+    globalThis.fetch = (async () => {
+      fetchCount += 1;
+      return Response.json({
+        choices: [{ message: { content: 'Please try a supported format instead.' } }],
+      });
+    }) as typeof fetch;
+
+    const reusedResponse = await chunkedAnalyzeBotPost(
+      jsonRequest<Parameters<typeof chunkedAnalyzeBotPost>[0]>({
+        botName: 'AnotherBot',
+        apiKey: 'test-key',
+        chunk: 6,
+        sessionId,
+      })
+    );
+
+    assert.equal(reusedResponse.status, 200);
+    assert.match(await reusedResponse.text(), /"type":"complete"/);
+    assert.equal(fetchCount, 1);
+  } finally {
+    globalThis.fetch = originalFetch;
+    globalThis.TextEncoder = originalTextEncoder;
+  }
+}
+
 async function runTestBotTransportFailureAssertions() {
   const originalFetch = globalThis.fetch;
   const originalConsoleError = console.error;
@@ -792,6 +852,7 @@ async function main() {
   await runRequestBodyAssertions();
   await runRouteAssertions();
   await runChunkSessionBotBindingAssertion();
+  await runFailedChunkSessionCleanupAssertion();
   await runTestBotSuccessAssertion();
   await runTestBotTransportFailureAssertions();
 }

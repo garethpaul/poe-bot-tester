@@ -150,6 +150,12 @@ function acquireSession(sessionId: string, botName: string): SessionData | null 
   return sessionData;
 }
 
+function releaseSession(sessionId: string, sessionData: SessionData): void {
+  if (sessions.get(sessionId) === sessionData) {
+    sessions.delete(sessionId);
+  }
+}
+
 async function sendProgress(controller: ReadableStreamDefaultController<Uint8Array>, update: ProgressUpdate) {
   const data = `data: ${JSON.stringify(update)}\n\n`;
   controller.enqueue(new TextEncoder().encode(data));
@@ -1395,6 +1401,7 @@ export async function POST(request: NextRequest) {
       try {
         await processChunk(botName, apiKey, chunk, sessionId, sessionData, controller);
       } catch (error) {
+        releaseSession(sessionId, sessionData);
         await sendProgress(controller, {
           type: 'error',
           message: error instanceof Error ? error.message : 'Analysis failed',

@@ -36,6 +36,7 @@ Priority:
 - Keep deterministic streaming analyzer scoring for simulated checks
 - Reject invalid chunked analysis indexes before streaming progress
 - Reject invalid chunked analysis session IDs before streaming progress
+- Release exact chunk sessions on terminal chunk stream failure before error emission
 - Reject unknown test file types before decoding fixture data
 - Keep Poe transport errors stable and free of runtime exception details
 - Keep one shared five-second abort boundary for Poe metadata fetches across

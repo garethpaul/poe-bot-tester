@@ -198,7 +198,7 @@ done
 for package_script in \
   '"lint": "eslint ."' \
   '"typecheck": "tsc --noEmit"' \
-  '"test": "tsx scripts/test-analyze-bot.ts && tsx scripts/test-sse-data-decoder.ts"' \
+  '"test": "tsx scripts/test-analyze-bot.ts && tsx scripts/test-sse-data-decoder.ts && tsx scripts/test-sse-stream-consumer.ts"' \
   '"audit": "npm audit --audit-level=moderate"' \
   '"verify": "npm run lint && npm run typecheck && npm test && npm run build && npm run audit"'; do
   if ! grep -Fq "$package_script" "$PACKAGE_JSON"; then
@@ -241,6 +241,9 @@ ROUTE_TESTS="$ROOT_DIR/scripts/test-analyze-bot.ts"
 PAGE="$ROOT_DIR/src/app/page.tsx"
 SSE_DECODER="$ROOT_DIR/src/app/sse-data-decoder.ts"
 SSE_TESTS="$ROOT_DIR/scripts/test-sse-data-decoder.ts"
+SSE_CONSUMER="$ROOT_DIR/src/app/sse-stream-consumer.ts"
+SSE_CONSUMER_TESTS="$ROOT_DIR/scripts/test-sse-stream-consumer.ts"
+SSE_CONSUMER_PLAN="$ROOT_DIR/docs/plans/2026-06-15-terminal-sse-reader-cleanup.md"
 
 for decoder_contract in \
   "export class SseDataDecoder" \
@@ -258,12 +261,62 @@ for decoder_contract in \
 done
 
 for page_contract in \
-  "new SseDataDecoder<ProgressUpdate>()" \
-  "decoder.decode(value, { stream: true })" \
-  "sseDecoder.push(chunk)" \
-  "sseDecoder.finish()"; do
+  "import { consumeSseStream } from './sse-stream-consumer'" \
+  "if (await consumeSseStream<ProgressUpdate>(reader, processUpdate)) return;"; do
   if ! grep -Fq "$page_contract" "$PAGE"; then
     printf '%s\n' "page.tsx must preserve buffered SSE integration: $page_contract" >&2
+    exit 1
+  fi
+done
+
+for consumer_contract in \
+  'export async function consumeSseStream<T extends object>' \
+  'await reader.cancel()' \
+  'const completed = await processUpdates(finalUpdates)' \
+  'reader.releaseLock()'; do
+  if ! grep -Fq "$consumer_contract" "$SSE_CONSUMER"; then
+    printf '%s\n' "SSE consumer must preserve terminal reader cleanup: $consumer_contract" >&2
+    exit 1
+  fi
+done
+
+for consumer_test_contract in \
+  "terminalUpdates, ['progress', 'complete']" \
+  'assert.equal(terminalReader.readCalls, 1)' \
+  'assert.equal(terminalReader.cancelCalls, 1)' \
+  "assert.deepEqual(terminalReader.events, ['cancel', 'release'])" \
+  'assert.equal(eofReader.cancelCalls, 0)' \
+  'assert.equal(cancelFailureReader.releaseCalls, 1)' \
+  'assert.equal(readFailureReader.releaseCalls, 1)' \
+  'assert.equal(callbackFailureReader.releaseCalls, 1)'; do
+  if ! grep -Fq "$consumer_test_contract" "$SSE_CONSUMER_TESTS"; then
+    printf '%s\n' "SSE consumer tests must preserve reader lifecycle coverage: $consumer_test_contract" >&2
+    exit 1
+  fi
+done
+
+if ! grep -Fq 'tsx scripts/test-sse-stream-consumer.ts' "$ROOT_DIR/package.json"; then
+  printf '%s\n' "Package test gate must execute the SSE consumer lifecycle suite." >&2
+  exit 1
+fi
+
+for consumer_doc in "$ROOT_DIR/AGENTS.md" "$ROOT_DIR/README.md" \
+  "$ROOT_DIR/SECURITY.md" "$ROOT_DIR/VISION.md" "$ROOT_DIR/CHANGES.md"; do
+  if ! tr '\n' ' ' < "$consumer_doc" | tr -s '[:space:]' ' ' | \
+      grep -Fq "Terminal streamed completion cancels the response reader and always releases its lock."; then
+    printf '%s\n' "$consumer_doc must document terminal reader cleanup." >&2
+    exit 1
+  fi
+done
+
+for consumer_plan_contract in \
+  'Status: Completed' \
+  '## Verification: Completed' \
+  'make check' \
+  'hostile mutations' \
+  'no browser execution is claimed'; do
+  if ! grep -Fq "$consumer_plan_contract" "$SSE_CONSUMER_PLAN"; then
+    printf '%s\n' "SSE consumer plan must record completed verification: $consumer_plan_contract" >&2
     exit 1
   fi
 done

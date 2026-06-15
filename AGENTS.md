@@ -57,6 +57,7 @@
 - Blank bot descriptions are treated as missing before description scoring.
 - Chunked analysis rejects invalid chunked analysis indexes before creating progress streams.
 - Chunked analysis rejects invalid chunked analysis session IDs before creating progress streams.
+- Terminal streamed completion cancels the response reader and always releases its lock.
 
 ## Agent workflow
 

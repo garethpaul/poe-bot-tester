@@ -1,6 +1,6 @@
 # Terminal SSE Reader Cleanup
 
-Status: In Progress
+Status: Completed
 
 ## Problem
 
@@ -29,8 +29,16 @@ real read failures.
 - Do not claim browser execution from Node stream-reader tests.
 - Do not merge or close stacked pull requests without explicit authorization.
 
-## Verification
+## Verification: Completed
 
-- Pending focused stream-consumer tests and integration validation.
-- Pending full repository and external-directory package gates.
-- Pending hostile mutation, diff, artifact, and secret audits.
+- The focused stream-consumer lifecycle suite passed terminal cancellation,
+  normal EOF, cancel failure, reader failure, callback failure, and lock release.
+- Lint, typecheck, all deterministic tests, production build, dependency audit,
+  and full `make check` passed from the repository root and through the absolute
+  Makefile path from an external directory.
+- Eight focused hostile mutations were rejected across terminal cancellation,
+  unconditional lock release, early return, integration, test wiring, guidance,
+  and completed plan evidence.
+- Final diff, generated-artifact, credential-pattern, conflict-marker, and
+  whitespace audits passed for the intended paths.
+- Node tests cover the reader lifecycle without live Poe credentials; no browser execution is claimed.

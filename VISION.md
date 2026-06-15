@@ -1,5 +1,7 @@
 ## Poe Bot Tester Vision
 
+Terminal streamed completion cancels the response reader and always releases its lock.
+
 Poe Bot Tester is a Next.js application for evaluating Poe bots across
 branding, functionality, file support, usability, error handling, and response
 performance.

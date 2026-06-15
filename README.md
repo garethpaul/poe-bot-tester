@@ -66,6 +66,8 @@ Detected npm scripts:
 
 ## Testing and Verification
 
+Terminal streamed completion cancels the response reader and always releases its lock.
+
 Pinned hosted Linux validation runs `npm ci` and the full `make check` gate on
 Node 20 and Node 24 without Poe credentials or live bot analysis requests.
 

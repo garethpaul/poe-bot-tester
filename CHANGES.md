@@ -1,5 +1,9 @@
 # Changes
 
+## 2026-06-15
+
+- Terminal streamed completion cancels the response reader and always releases its lock.
+
 ## 2026-06-14
 
 - Buffered browser-side SSE data across network chunk boundaries so split JSON

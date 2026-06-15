@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 
-import { SseDataDecoder } from './sse-data-decoder';
+import { consumeSseStream } from './sse-stream-consumer';
 
 interface TestResult {
   name: string;
@@ -221,9 +221,6 @@ export default function Home() {
       }
 
       const reader = response.body?.getReader();
-      const decoder = new TextDecoder();
-      const sseDecoder = new SseDataDecoder<ProgressUpdate>();
-
       if (!reader) {
         throw new Error('No response body');
       }
@@ -250,27 +247,7 @@ export default function Home() {
         return false;
       };
 
-      while (true) {
-        const { value, done } = await reader.read();
-        if (done) {
-          const finalText = decoder.decode();
-          const finalUpdates = [
-            ...sseDecoder.push(finalText),
-            ...sseDecoder.finish(),
-          ];
-
-          for (const data of finalUpdates) {
-            if (processUpdate(data)) return;
-          }
-
-          break;
-        }
-
-        const chunk = decoder.decode(value, { stream: true });
-        for (const data of sseDecoder.push(chunk)) {
-          if (processUpdate(data)) return;
-        }
-      }
+      if (await consumeSseStream<ProgressUpdate>(reader, processUpdate)) return;
 
       // If we have a next chunk, continue the analysis
       if (nextChunk !== null) {

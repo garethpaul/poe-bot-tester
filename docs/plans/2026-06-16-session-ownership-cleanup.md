@@ -1,6 +1,6 @@
 # Chunk Session Ownership Cleanup
 
-Status: In Progress
+Status: Completed
 
 ## Problem
 
@@ -41,8 +41,22 @@ replacement session after ownership has changed.
 
 ## Work Completed
 
-Pending implementation and validation.
+- Removed the redundant chunk-session write-back so a stale acquired session
+  cannot overwrite a replacement after ownership changes.
+- Routed successful final cleanup through the existing exact-object release
+  helper used by terminal failures.
+- Added mutation-sensitive source contracts, synchronized guidance, and this
+  completed evidence record.
 
 ## Verification Completed
 
-Pending implementation and validation.
+- The focused route/static suite and complete deterministic test suite passed
+  on Node 20.19.5 and Node 24.16.0.
+- Lint, typecheck, the production build, dependency audit, repository
+  `make check`, and the absolute-Makefile gate from `/tmp` passed on both Node
+  lanes.
+- Six isolated hostile mutations were rejected across stale write-back count,
+  final release identity, release count, source-test coverage, guidance, and
+  plan status.
+- `git diff --check`, generated-artifact, dependency, credential,
+  conflict-marker, binary, mode, and intended-path audits passed before commit.

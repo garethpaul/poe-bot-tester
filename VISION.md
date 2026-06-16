@@ -37,6 +37,8 @@ Priority:
 - Reject invalid chunked analysis indexes before streaming progress
 - Reject invalid chunked analysis session IDs before streaming progress
 - Release exact chunk sessions on terminal chunk stream failure before error emission
+- Preserve exact-session ownership during successful final cleanup and never
+  restore a stale acquired session after ownership changes
 - Reject unknown test file types before decoding fixture data
 - Keep Poe transport errors stable and free of runtime exception details
 - Keep one shared five-second abort boundary for Poe metadata fetches across

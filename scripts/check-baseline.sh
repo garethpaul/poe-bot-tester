@@ -12,6 +12,7 @@ CHUNKED_ROUTE="$ROOT_DIR/src/app/api/analyze-bot-chunked/route.ts"
 ANALYZE_BOT_TEST="$ROOT_DIR/scripts/test-analyze-bot.ts"
 SESSION_BOT_BINDING_PLAN="$DOCS_PLANS/2026-06-15-chunk-session-bot-binding.md"
 FAILED_SESSION_CLEANUP_PLAN="$DOCS_PLANS/2026-06-15-failed-stream-session-cleanup.md"
+SESSION_OWNERSHIP_CLEANUP_PLAN="$DOCS_PLANS/2026-06-16-session-ownership-cleanup.md"
 
 require_file() {
   path=$1
@@ -57,6 +58,7 @@ for path in \
   "docs/plans/2026-06-14-location-independent-make.md" \
   "docs/plans/2026-06-14-buffer-split-sse-records.md" \
   "docs/plans/2026-06-15-failed-stream-session-cleanup.md" \
+  "docs/plans/2026-06-16-session-ownership-cleanup.md" \
   "scripts/check-baseline.sh"; do
   require_file "$path"
 done
@@ -71,7 +73,54 @@ for cleanup_contract in \
   fi
 done
 
-cleanup_line=$(grep -nF 'releaseSession(sessionId, sessionData);' "$CHUNKED_ROUTE" | cut -d: -f1)
+if [ "$(grep -Fc 'sessions.set(sessionId, sessionData);' "$CHUNKED_ROUTE")" -ne 1 ]; then
+  printf '%s\n' 'Chunk processing must not write an acquired session back after ownership can change.' >&2
+  exit 1
+fi
+
+if [ "$(grep -Fc 'releaseSession(sessionId, sessionData);' "$CHUNKED_ROUTE")" -ne 2 ]; then
+  printf '%s\n' 'Failed and successful terminal chunks must release their exact acquired session.' >&2
+  exit 1
+fi
+
+if ! sed -n "/type: 'complete'/,/^  } else {/p" "$CHUNKED_ROUTE" | grep -Fq 'releaseSession(sessionId, sessionData);'; then
+  printf '%s\n' 'Successful final chunk cleanup must release the exact acquired session.' >&2
+  exit 1
+fi
+
+for document in "$README" "$ROOT_DIR/SECURITY.md" "$ROOT_DIR/VISION.md" "$ROOT_DIR/CHANGES.md"; do
+  if ! grep -Fqi 'exact-session ownership' "$document"; then
+    printf '%s\n' "$document must document exact-session ownership for terminal cleanup." >&2
+    exit 1
+  fi
+done
+
+for evidence in \
+  'Status: Completed' \
+  'stale acquired session' \
+  'Node 20' \
+  'Node 24' \
+  'make check' \
+  'isolated hostile mutations were rejected' \
+  'git diff --check'; do
+  if ! grep -Fq "$evidence" "$SESSION_OWNERSHIP_CLEANUP_PLAN"; then
+    printf '%s\n' "Session ownership cleanup plan must preserve completed evidence: $evidence" >&2
+    exit 1
+  fi
+done
+
+for test_contract in \
+  'chunkedRouteSource.match(/sessions\.set' \
+  'chunkedRouteSource.match(/releaseSession' \
+  "/type: 'complete'[\s\S]*releaseSession" \
+  'sessionOwnershipCleanupPlan'; do
+  if ! grep -Fq "$test_contract" "$ANALYZE_BOT_TEST"; then
+    printf '%s\n' "Route tests must preserve exact-session ownership coverage: $test_contract" >&2
+    exit 1
+  fi
+done
+
+cleanup_line=$(grep -nF 'releaseSession(sessionId, sessionData);' "$CHUNKED_ROUTE" | tail -1 | cut -d: -f1)
 error_line=$(grep -nF 'await sendProgress(controller, {' "$CHUNKED_ROUTE" | tail -1 | cut -d: -f1)
 if [ -z "$cleanup_line" ] || [ -z "$error_line" ] || [ "$cleanup_line" -ge "$error_line" ]; then
   printf '%s\n' 'Failed chunk session cleanup must precede terminal SSE error emission.' >&2

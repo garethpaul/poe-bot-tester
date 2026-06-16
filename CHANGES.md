@@ -1,5 +1,11 @@
 # Changes
 
+## 2026-06-16
+
+- Exact-session ownership now governs successful final chunk cleanup, and
+  chunk processing no longer restores stale acquired sessions after ownership
+  changes.
+
 ## 2026-06-15
 
 - Terminal streamed completion cancels the response reader and always releases its lock.

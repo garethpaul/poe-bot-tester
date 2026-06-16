@@ -293,6 +293,7 @@ const metadataAttributePlan = readProjectFile('docs/plans/2026-06-09-poe-bot-tes
 const sessionIdPlan = readProjectFile('docs/plans/2026-06-09-poe-bot-tester-session-id-validation.md');
 const sessionBotBindingPlan = readProjectFile('docs/plans/2026-06-15-chunk-session-bot-binding.md');
 const failedSessionCleanupPlan = readProjectFile('docs/plans/2026-06-15-failed-stream-session-cleanup.md');
+const sessionOwnershipCleanupPlan = readProjectFile('docs/plans/2026-06-16-session-ownership-cleanup.md');
 const testFileTypePlan = readProjectFile('docs/plans/2026-06-10-poe-bot-tester-test-file-type-validation.md');
 const metadataTimeoutPlan = readProjectFile('docs/plans/2026-06-12-poe-metadata-fetch-timeout.md');
 
@@ -372,6 +373,18 @@ assert.match(chunkedRouteSource, /SESSION_BOT_MISMATCH_ERROR[\s\S]*status: 409/)
 assert.match(chunkedRouteSource, /function releaseSession/);
 assert.match(chunkedRouteSource, /sessions\.get\(sessionId\) === sessionData/);
 assert.match(chunkedRouteSource, /catch \(error\) {[\s\S]*releaseSession\(sessionId, sessionData\);[\s\S]*await sendProgress/);
+assert.equal(
+  (chunkedRouteSource.match(/sessions\.set\(sessionId, sessionData\);/g) ?? []).length,
+  1
+);
+assert.equal(
+  (chunkedRouteSource.match(/releaseSession\(sessionId, sessionData\);/g) ?? []).length,
+  2
+);
+assert.match(
+  chunkedRouteSource,
+  /type: 'complete'[\s\S]*releaseSession\(sessionId, sessionData\);/
+);
 assert.match(sessionBotBindingPlan, /Bind each active chunk session/);
 assert.match(sessionBotBindingPlan, /before creating an\s+SSE response/);
 assert.match(sessionBotBindingPlan, /status: completed/i);
@@ -381,6 +394,13 @@ assert.match(failedSessionCleanupPlan, /Status: Completed/i);
 assert.match(failedSessionCleanupPlan, /terminal stream failure/i);
 assert.match(failedSessionCleanupPlan, /isolated hostile mutations were rejected/i);
 assert.match(failedSessionCleanupPlan, /make check/);
+assert.match(sessionOwnershipCleanupPlan, /Status: Completed/i);
+assert.match(sessionOwnershipCleanupPlan, /stale acquired session/i);
+assert.match(sessionOwnershipCleanupPlan, /isolated hostile mutations were rejected/i);
+assert.match(sessionOwnershipCleanupPlan, /make check/);
+for (const document of [readme, security, vision, changes]) {
+  assert.match(document, /exact-session ownership/i);
+}
 assert.match(scoringSource, /metadata\.description\.trim\(\)/);
 assert.match(scoringSource, /function findMetaContent/);
 assert.match(scoringSource, /function findAttribute/);

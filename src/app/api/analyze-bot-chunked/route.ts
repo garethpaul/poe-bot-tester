@@ -252,9 +252,6 @@ async function processChunk(
     }
   }
 
-  // Update session
-  sessions.set(sessionId, sessionData);
-
   // Check if this is the last chunk
   if (chunkIndex >= TEST_CHUNKS.length - 1) {
     // Calculate final score and send completion
@@ -276,8 +273,8 @@ async function processChunk(
       sessionId
     });
 
-    // Clean up session
-    sessions.delete(sessionId);
+    // Clean up only the exact session acquired by this request.
+    releaseSession(sessionId, sessionData);
   } else {
     // Signal to continue with next chunk
     await sendProgress(controller, {

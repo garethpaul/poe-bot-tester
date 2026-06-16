@@ -2,6 +2,8 @@
 
 ## 2026-06-16
 
+- Overlapping requests for one chunk session now receive HTTP 409 until the
+  active request releases its exact in-flight lease.
 - Exact-session ownership now governs successful final chunk cleanup, and
   chunk processing no longer restores stale acquired sessions after ownership
   changes.

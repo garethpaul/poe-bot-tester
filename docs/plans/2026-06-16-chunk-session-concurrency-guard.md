@@ -1,6 +1,6 @@
 # Chunk Session Concurrency Guard
 
-Status: Planned
+Status: Completed
 
 ## Problem
 
@@ -39,3 +39,26 @@ earlier chunk is still running.
   lease release, behavioral coverage, guidance, and completed plan evidence.
 - Audit the exact diff, generated artifacts, dependencies, credentials,
   conflict markers, modes, binaries, and whitespace before commit and push.
+
+## Work Completed
+
+- Added an exact request lease to each in-memory chunk session and reject a
+  second same-session request with HTTP 409 while that lease is active.
+- Release the lease in the stream `finally` path so success and failure both
+  permit later sequential chunks without weakening exact-session cleanup.
+- Added a controlled overlapping-request regression, static source contracts,
+  baseline enforcement, and synchronized project guidance.
+
+## Verification Completed
+
+- The focused route/static suite and complete deterministic test suite passed
+  on Node 20.19.5 and Node 24.16.0.
+- Lint, typecheck, the Next.js 16.2.9 production build, and a zero-vulnerability
+  dependency audit passed on both Node lanes.
+- Seven isolated hostile mutations were rejected across overlap detection,
+  response status, exact lease release, lease identity, behavioral invocation,
+  guidance, and completed plan status.
+- Repository `make check` and the absolute-Makefile gate from `/tmp` passed on
+  both Node 20.19.5 and Node 24.16.0.
+- `git diff --check` and generated-artifact, dependency, credential,
+  conflict-marker, binary, mode, and intended-path audits passed before commit.

@@ -95,6 +95,7 @@ const CHUNK_SESSION_ID_PATTERN = /^[A-Za-z0-9_-]{1,96}$/;
 const INVALID_SESSION_ID_ERROR =
   'Session ID may only contain letters, numbers, underscores, and hyphens';
 export const SESSION_BOT_MISMATCH_ERROR = 'Session ID is already in use for another bot';
+export const SESSION_IN_PROGRESS_ERROR = 'Session already has a chunk in progress';
 
 function normalizeChunkIndex(value: unknown): number | null {
   if (typeof value !== 'number' || !Number.isInteger(value)) return null;
@@ -116,6 +117,7 @@ function normalizeChunkSessionId(value: unknown, fallback: string): string | nul
 
 interface SessionData {
   botName: string;
+  activeLease: symbol | null;
   results: {
     branding: unknown[];
     functionality: unknown[];
@@ -137,6 +139,7 @@ function acquireSession(sessionId: string, botName: string): SessionData | null 
 
   const sessionData: SessionData = {
     botName,
+    activeLease: null,
     results: {
       branding: [],
       functionality: [],
@@ -148,6 +151,20 @@ function acquireSession(sessionId: string, botName: string): SessionData | null 
   };
   sessions.set(sessionId, sessionData);
   return sessionData;
+}
+
+function acquireSessionLease(sessionData: SessionData): symbol | null {
+  if (sessionData.activeLease) return null;
+
+  const lease = Symbol('chunk-session-request');
+  sessionData.activeLease = lease;
+  return lease;
+}
+
+function releaseSessionLease(sessionData: SessionData, lease: symbol): void {
+  if (sessionData.activeLease === lease) {
+    sessionData.activeLease = null;
+  }
 }
 
 function releaseSession(sessionId: string, sessionData: SessionData): void {
@@ -1393,6 +1410,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: SESSION_BOT_MISMATCH_ERROR }, { status: 409 });
   }
 
+  const sessionLease = acquireSessionLease(sessionData);
+  if (!sessionLease) {
+    return NextResponse.json({ error: SESSION_IN_PROGRESS_ERROR }, { status: 409 });
+  }
+
   const stream = new ReadableStream({
     async start(controller) {
       try {
@@ -1405,6 +1427,7 @@ export async function POST(request: NextRequest) {
           sessionId
         });
       } finally {
+        releaseSessionLease(sessionData, sessionLease);
         controller.close();
       }
     }

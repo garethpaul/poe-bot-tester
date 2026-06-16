@@ -13,6 +13,7 @@ ANALYZE_BOT_TEST="$ROOT_DIR/scripts/test-analyze-bot.ts"
 SESSION_BOT_BINDING_PLAN="$DOCS_PLANS/2026-06-15-chunk-session-bot-binding.md"
 FAILED_SESSION_CLEANUP_PLAN="$DOCS_PLANS/2026-06-15-failed-stream-session-cleanup.md"
 SESSION_OWNERSHIP_CLEANUP_PLAN="$DOCS_PLANS/2026-06-16-session-ownership-cleanup.md"
+SESSION_CONCURRENCY_GUARD_PLAN="$DOCS_PLANS/2026-06-16-chunk-session-concurrency-guard.md"
 
 require_file() {
   path=$1
@@ -59,6 +60,7 @@ for path in \
   "docs/plans/2026-06-14-buffer-split-sse-records.md" \
   "docs/plans/2026-06-15-failed-stream-session-cleanup.md" \
   "docs/plans/2026-06-16-session-ownership-cleanup.md" \
+  "docs/plans/2026-06-16-chunk-session-concurrency-guard.md" \
   "scripts/check-baseline.sh"; do
   require_file "$path"
 done
@@ -116,6 +118,50 @@ for test_contract in \
   'sessionOwnershipCleanupPlan'; do
   if ! grep -Fq "$test_contract" "$ANALYZE_BOT_TEST"; then
     printf '%s\n' "Route tests must preserve exact-session ownership coverage: $test_contract" >&2
+    exit 1
+  fi
+done
+
+for route_contract in \
+  'function acquireSessionLease' \
+  'if (sessionData.activeLease) return null' \
+  'function releaseSessionLease' \
+  'sessionData.activeLease === lease' \
+  'return NextResponse.json({ error: SESSION_IN_PROGRESS_ERROR }, { status: 409 });' \
+  'releaseSessionLease(sessionData, sessionLease);'; do
+  if ! grep -Fq "$route_contract" "$CHUNKED_ROUTE"; then
+    printf '%s\n' "Concurrent chunk sessions must retain their lease contract: $route_contract" >&2
+    exit 1
+  fi
+done
+
+for test_contract in \
+  'async function runChunkSessionConcurrencyAssertion()' \
+  'assert.equal(overlappingResponse.status, 409);' \
+  'error: SESSION_IN_PROGRESS_ERROR' \
+  'assert.equal(sequentialResponse.status, 200);' \
+  'await runChunkSessionConcurrencyAssertion();'; do
+  if ! grep -Fq "$test_contract" "$ANALYZE_BOT_TEST"; then
+    printf '%s\n' "Concurrent chunk session tests must retain their regression contract: $test_contract" >&2
+    exit 1
+  fi
+done
+
+for document in "$README" "$ROOT_DIR/SECURITY.md" "$ROOT_DIR/VISION.md" "$ROOT_DIR/CHANGES.md"; do
+  if ! grep -Fqi 'exact in-flight lease' "$document"; then
+    printf '%s\n' "$document must document exact in-flight chunk-session leases." >&2
+    exit 1
+  fi
+done
+
+for plan_contract in \
+  'Status: Completed' \
+  'HTTP 409' \
+  'exact request lease' \
+  'isolated hostile mutations were rejected' \
+  'make check'; do
+  if ! grep -Fqi "$plan_contract" "$SESSION_CONCURRENCY_GUARD_PLAN"; then
+    printf '%s\n' "Chunk session concurrency plan must retain completed evidence: $plan_contract" >&2
     exit 1
   fi
 done

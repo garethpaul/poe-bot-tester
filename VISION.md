@@ -39,6 +39,8 @@ Priority:
 - Release exact chunk sessions on terminal chunk stream failure before error emission
 - Preserve exact-session ownership during successful final cleanup and never
   restore a stale acquired session after ownership changes
+- Reject overlapping chunk requests for the same session until the active
+  request releases its exact in-flight lease
 - Reject unknown test file types before decoding fixture data
 - Keep Poe transport errors stable and free of runtime exception details
 - Keep one shared five-second abort boundary for Poe metadata fetches across

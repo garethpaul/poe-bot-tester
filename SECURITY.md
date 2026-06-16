@@ -59,6 +59,8 @@ A terminal chunk stream failure releases its exact in-memory session before
 error emission so stale bot ownership does not persist after termination.
 Exact-session ownership also governs successful final cleanup, and chunk
 processing never writes a stale acquired session back after ownership changes.
+Overlapping requests for one chunk session receive HTTP 409 until the active
+request releases its exact in-flight lease.
 Test-file fixture routes reject unknown test file types, including inherited
 object keys, before decoding fixture data.
 Poe transport errors and timeouts return stable gateway responses without

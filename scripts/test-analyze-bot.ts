@@ -5,6 +5,7 @@ import { POST as analyzeBotPost } from '../src/app/api/analyze-bot/route';
 import {
   POST as chunkedAnalyzeBotPost,
   SESSION_BOT_MISMATCH_ERROR,
+  SESSION_IN_PROGRESS_ERROR,
 } from '../src/app/api/analyze-bot-chunked/route';
 import { POST as streamAnalyzeBotPost } from '../src/app/api/analyze-bot-stream/route';
 import {
@@ -372,6 +373,15 @@ assert.match(chunkedRouteSource, /existingSession\.botName === botName \? existi
 assert.match(chunkedRouteSource, /SESSION_BOT_MISMATCH_ERROR[\s\S]*status: 409/);
 assert.match(chunkedRouteSource, /function releaseSession/);
 assert.match(chunkedRouteSource, /sessions\.get\(sessionId\) === sessionData/);
+assert.match(chunkedRouteSource, /function acquireSessionLease/);
+assert.match(chunkedRouteSource, /if \(sessionData\.activeLease\) return null/);
+assert.match(chunkedRouteSource, /function releaseSessionLease/);
+assert.match(chunkedRouteSource, /sessionData\.activeLease === lease/);
+assert.match(chunkedRouteSource, /SESSION_IN_PROGRESS_ERROR[\s\S]*status: 409/);
+assert.match(
+  chunkedRouteSource,
+  /finally {[\s\S]*releaseSessionLease\(sessionData, sessionLease\);[\s\S]*controller\.close\(\);/
+);
 assert.match(chunkedRouteSource, /catch \(error\) {[\s\S]*releaseSession\(sessionId, sessionData\);[\s\S]*await sendProgress/);
 assert.equal(
   (chunkedRouteSource.match(/sessions\.set\(sessionId, sessionData\);/g) ?? []).length,
@@ -762,6 +772,68 @@ async function runChunkSessionBotBindingAssertion() {
   }
 }
 
+async function runChunkSessionConcurrencyAssertion() {
+  const originalFetch = globalThis.fetch;
+  let resolveFirstFetch: ((response: Response) => void) | undefined;
+  let markFetchStarted: (() => void) | undefined;
+  const fetchStarted = new Promise<void>(resolve => {
+    markFetchStarted = resolve;
+  });
+
+  globalThis.fetch = (() => new Promise<Response>(resolve => {
+    resolveFirstFetch = resolve;
+    markFetchStarted?.();
+  })) as typeof fetch;
+
+  try {
+    const sessionId = 'concurrent-chunk-session';
+    const firstResponse = await chunkedAnalyzeBotPost(
+      jsonRequest<Parameters<typeof chunkedAnalyzeBotPost>[0]>({
+        botName: 'HelperBot',
+        apiKey: 'test-key',
+        chunk: 0,
+        sessionId,
+      })
+    );
+
+    assert.equal(firstResponse.status, 200);
+    await fetchStarted;
+
+    const overlappingResponse = await chunkedAnalyzeBotPost(
+      jsonRequest<Parameters<typeof chunkedAnalyzeBotPost>[0]>({
+        botName: 'HelperBot',
+        apiKey: 'test-key',
+        chunk: 1,
+        sessionId,
+      })
+    );
+
+    assert.equal(overlappingResponse.status, 409);
+    assert.deepEqual(await readJson(overlappingResponse), {
+      error: SESSION_IN_PROGRESS_ERROR,
+    });
+
+    assert.ok(resolveFirstFetch);
+    resolveFirstFetch(new Response(sampleHtml, { status: 200 }));
+    await firstResponse.text();
+
+    const sequentialResponse = await chunkedAnalyzeBotPost(
+      jsonRequest<Parameters<typeof chunkedAnalyzeBotPost>[0]>({
+        botName: 'HelperBot',
+        apiKey: 'test-key',
+        chunk: 1,
+        sessionId,
+      })
+    );
+
+    assert.equal(sequentialResponse.status, 200);
+    await sequentialResponse.text();
+  } finally {
+    globalThis.fetch = originalFetch;
+    resolveFirstFetch?.(new Response(sampleHtml, { status: 200 }));
+  }
+}
+
 async function runFailedChunkSessionCleanupAssertion() {
   const originalFetch = globalThis.fetch;
   const originalTextEncoder = globalThis.TextEncoder;
@@ -872,6 +944,7 @@ async function main() {
   await runRequestBodyAssertions();
   await runRouteAssertions();
   await runChunkSessionBotBindingAssertion();
+  await runChunkSessionConcurrencyAssertion();
   await runFailedChunkSessionCleanupAssertion();
   await runTestBotSuccessAssertion();
   await runTestBotTransportFailureAssertions();

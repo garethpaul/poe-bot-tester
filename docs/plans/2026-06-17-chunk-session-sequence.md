@@ -1,6 +1,6 @@
 # Exact Chunk Session Sequence
 
-status: planned
+status: completed
 
 ## Problem
 
@@ -72,3 +72,29 @@ coverage, guidance, and completed plan evidence against hostile mutations.
   replaying that chunk; response replay requires a separate persistence design.
 - In-memory sessions remain process-local and non-durable by design.
 - This change is stacked on PR #11, which must remain open and merge first.
+
+## Work Completed
+
+- Added per-session expected-chunk state initialized at chunk 0 and advanced
+  only after a successful nonterminal chunk.
+- Preserved the established overlap error before sequence validation, then
+  reject replayed, skipped, or late-start chunks before acquiring a new lease.
+- Delete an empty session created by an invalid nonzero start so a later valid
+  chunk 0 can reuse the ID without state poisoning.
+- Added behavioral and static contracts for invalid starts, replay, skip,
+  non-poisoning continuation, cleanup reuse, and exact validation ordering.
+
+## Verification Completed
+
+- The focused route/static coverage and complete deterministic suite passed on
+  Node 20.19.5 and Node 24.16.0.
+- `npm run verify` passed lint, typecheck, tests, the Next.js 16.2.9 production
+  build, and a zero-vulnerability audit on both runtimes.
+- Every Make alias and the absolute Makefile gate from an external working directory
+  passed on both supported Node lanes.
+- Seven isolated hostile mutations were rejected: initial order, continuation
+  comparison, validation placement, sequence advancement, behavioral
+  invocation, guidance, and completed plan status.
+- `git diff --check` plus generated build/dependency artifact, credential,
+  conflict-marker, binary, size, mode, and intended-path audits passed.
+- No live Poe request or real credential was used.

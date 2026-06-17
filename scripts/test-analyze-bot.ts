@@ -5,6 +5,7 @@ import { POST as analyzeBotPost } from '../src/app/api/analyze-bot/route';
 import {
   POST as chunkedAnalyzeBotPost,
   SESSION_BOT_MISMATCH_ERROR,
+  SESSION_CHUNK_SEQUENCE_ERROR,
   SESSION_IN_PROGRESS_ERROR,
 } from '../src/app/api/analyze-bot-chunked/route';
 import { POST as streamAnalyzeBotPost } from '../src/app/api/analyze-bot-stream/route';
@@ -378,6 +379,13 @@ assert.match(chunkedRouteSource, /if \(sessionData\.activeLease\) return null/);
 assert.match(chunkedRouteSource, /function releaseSessionLease/);
 assert.match(chunkedRouteSource, /sessionData\.activeLease === lease/);
 assert.match(chunkedRouteSource, /SESSION_IN_PROGRESS_ERROR[\s\S]*status: 409/);
+assert.match(chunkedRouteSource, /nextChunk: number/);
+assert.match(chunkedRouteSource, /nextChunk: 0/);
+assert.match(chunkedRouteSource, /chunk !== sessionData\.nextChunk/);
+assert.match(chunkedRouteSource, /sessionData\.activeLease[\s\S]*chunk !== sessionData\.nextChunk/);
+assert.match(chunkedRouteSource, /if \(!sessionExisted\) releaseSession\(sessionId, sessionData\)/);
+assert.match(chunkedRouteSource, /sessionData\.nextChunk = chunkIndex \+ 1/);
+assert.match(chunkedRouteSource, /SESSION_CHUNK_SEQUENCE_ERROR[\s\S]*status: 409/);
 assert.match(
   chunkedRouteSource,
   /finally {[\s\S]*releaseSessionLease\(sessionData, sessionLease\);[\s\S]*controller\.close\(\);/
@@ -389,7 +397,7 @@ assert.equal(
 );
 assert.equal(
   (chunkedRouteSource.match(/releaseSession\(sessionId, sessionData\);/g) ?? []).length,
-  2
+  3
 );
 assert.match(
   chunkedRouteSource,
@@ -744,7 +752,7 @@ async function runChunkSessionBotBindingAssertion() {
       jsonRequest<Parameters<typeof chunkedAnalyzeBotPost>[0]>({
         botName: 'HelperBot',
         apiKey: 'test-key',
-        chunk: 0,
+        chunk: 1,
         sessionId,
       })
     );
@@ -834,6 +842,59 @@ async function runChunkSessionConcurrencyAssertion() {
   }
 }
 
+async function runChunkSessionSequenceAssertion() {
+  const originalFetch = globalThis.fetch;
+  let fetchCount = 0;
+
+  globalThis.fetch = (async () => {
+    fetchCount += 1;
+    return new Response(sampleHtml, { status: 200 });
+  }) as typeof fetch;
+
+  try {
+    const sessionId = 'ordered-chunk-session';
+    const invalidStart = await chunkedAnalyzeBotPost(
+      jsonRequest<Parameters<typeof chunkedAnalyzeBotPost>[0]>({
+        botName: 'HelperBot', apiKey: 'test-key', chunk: 1, sessionId,
+      })
+    );
+    assert.equal(invalidStart.status, 409);
+    assert.deepEqual(await readJson(invalidStart), { error: SESSION_CHUNK_SEQUENCE_ERROR });
+    assert.equal(fetchCount, 0);
+
+    const firstChunk = await chunkedAnalyzeBotPost(
+      jsonRequest<Parameters<typeof chunkedAnalyzeBotPost>[0]>({
+        botName: 'HelperBot', apiKey: 'test-key', chunk: 0, sessionId,
+      })
+    );
+    assert.equal(firstChunk.status, 200);
+    await firstChunk.text();
+    assert.equal(fetchCount, 1);
+
+    for (const chunk of [0, 2]) {
+      const outOfOrder = await chunkedAnalyzeBotPost(
+        jsonRequest<Parameters<typeof chunkedAnalyzeBotPost>[0]>({
+          botName: 'HelperBot', apiKey: 'test-key', chunk, sessionId,
+        })
+      );
+      assert.equal(outOfOrder.status, 409);
+      assert.deepEqual(await readJson(outOfOrder), { error: SESSION_CHUNK_SEQUENCE_ERROR });
+      assert.equal(fetchCount, 1);
+    }
+
+    const secondChunk = await chunkedAnalyzeBotPost(
+      jsonRequest<Parameters<typeof chunkedAnalyzeBotPost>[0]>({
+        botName: 'HelperBot', apiKey: 'test-key', chunk: 1, sessionId,
+      })
+    );
+    assert.equal(secondChunk.status, 200);
+    await secondChunk.text();
+    assert.equal(fetchCount, 1);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+}
+
 async function runFailedChunkSessionCleanupAssertion() {
   const originalFetch = globalThis.fetch;
   const originalTextEncoder = globalThis.TextEncoder;
@@ -872,13 +933,13 @@ async function runFailedChunkSessionCleanupAssertion() {
       jsonRequest<Parameters<typeof chunkedAnalyzeBotPost>[0]>({
         botName: 'AnotherBot',
         apiKey: 'test-key',
-        chunk: 6,
+        chunk: 0,
         sessionId,
       })
     );
 
     assert.equal(reusedResponse.status, 200);
-    assert.match(await reusedResponse.text(), /"type":"complete"/);
+    assert.match(await reusedResponse.text(), /"type":"chunk_complete"/);
     assert.equal(fetchCount, 1);
   } finally {
     globalThis.fetch = originalFetch;
@@ -945,6 +1006,7 @@ async function main() {
   await runRouteAssertions();
   await runChunkSessionBotBindingAssertion();
   await runChunkSessionConcurrencyAssertion();
+  await runChunkSessionSequenceAssertion();
   await runFailedChunkSessionCleanupAssertion();
   await runTestBotSuccessAssertion();
   await runTestBotTransportFailureAssertions();

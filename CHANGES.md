@@ -2,6 +2,8 @@
 
 ## 2026-06-16
 
+- Enforced an exact chunk sequence so new sessions start at chunk 0 and replayed
+  or skipped chunks cannot duplicate or omit score inputs.
 - Overlapping requests for one chunk session now receive HTTP 409 until the
   active request releases its exact in-flight lease.
 - Exact-session ownership now governs successful final chunk cleanup, and

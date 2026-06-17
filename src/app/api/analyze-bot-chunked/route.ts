@@ -96,6 +96,7 @@ const INVALID_SESSION_ID_ERROR =
   'Session ID may only contain letters, numbers, underscores, and hyphens';
 export const SESSION_BOT_MISMATCH_ERROR = 'Session ID is already in use for another bot';
 export const SESSION_IN_PROGRESS_ERROR = 'Session already has a chunk in progress';
+export const SESSION_CHUNK_SEQUENCE_ERROR = 'Chunk session must start at chunk 0 and continue in order';
 
 function normalizeChunkIndex(value: unknown): number | null {
   if (typeof value !== 'number' || !Number.isInteger(value)) return null;
@@ -118,6 +119,7 @@ function normalizeChunkSessionId(value: unknown, fallback: string): string | nul
 interface SessionData {
   botName: string;
   activeLease: symbol | null;
+  nextChunk: number;
   results: {
     branding: unknown[];
     functionality: unknown[];
@@ -140,6 +142,7 @@ function acquireSession(sessionId: string, botName: string): SessionData | null 
   const sessionData: SessionData = {
     botName,
     activeLease: null,
+    nextChunk: 0,
     results: {
       branding: [],
       functionality: [],
@@ -293,6 +296,7 @@ async function processChunk(
     // Clean up only the exact session acquired by this request.
     releaseSession(sessionId, sessionData);
   } else {
+    sessionData.nextChunk = chunkIndex + 1;
     // Signal to continue with next chunk
     await sendProgress(controller, {
       type: 'chunk_complete',
@@ -1405,9 +1409,19 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: INVALID_SESSION_ID_ERROR }, { status: 400 });
   }
 
+  const sessionExisted = sessions.has(sessionId);
   const sessionData = acquireSession(sessionId, botName);
   if (!sessionData) {
     return NextResponse.json({ error: SESSION_BOT_MISMATCH_ERROR }, { status: 409 });
+  }
+
+  if (sessionData.activeLease) {
+    return NextResponse.json({ error: SESSION_IN_PROGRESS_ERROR }, { status: 409 });
+  }
+
+  if (chunk !== sessionData.nextChunk) {
+    if (!sessionExisted) releaseSession(sessionId, sessionData);
+    return NextResponse.json({ error: SESSION_CHUNK_SEQUENCE_ERROR }, { status: 409 });
   }
 
   const sessionLease = acquireSessionLease(sessionData);

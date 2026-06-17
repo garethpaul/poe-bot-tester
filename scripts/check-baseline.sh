@@ -14,6 +14,7 @@ SESSION_BOT_BINDING_PLAN="$DOCS_PLANS/2026-06-15-chunk-session-bot-binding.md"
 FAILED_SESSION_CLEANUP_PLAN="$DOCS_PLANS/2026-06-15-failed-stream-session-cleanup.md"
 SESSION_OWNERSHIP_CLEANUP_PLAN="$DOCS_PLANS/2026-06-16-session-ownership-cleanup.md"
 SESSION_CONCURRENCY_GUARD_PLAN="$DOCS_PLANS/2026-06-16-chunk-session-concurrency-guard.md"
+SESSION_SEQUENCE_PLAN="$DOCS_PLANS/2026-06-17-chunk-session-sequence.md"
 
 require_file() {
   path=$1
@@ -61,6 +62,7 @@ for path in \
   "docs/plans/2026-06-15-failed-stream-session-cleanup.md" \
   "docs/plans/2026-06-16-session-ownership-cleanup.md" \
   "docs/plans/2026-06-16-chunk-session-concurrency-guard.md" \
+  "docs/plans/2026-06-17-chunk-session-sequence.md" \
   "scripts/check-baseline.sh"; do
   require_file "$path"
 done
@@ -80,8 +82,8 @@ if [ "$(grep -Fc 'sessions.set(sessionId, sessionData);' "$CHUNKED_ROUTE")" -ne 
   exit 1
 fi
 
-if [ "$(grep -Fc 'releaseSession(sessionId, sessionData);' "$CHUNKED_ROUTE")" -ne 2 ]; then
-  printf '%s\n' 'Failed and successful terminal chunks must release their exact acquired session.' >&2
+if [ "$(grep -Fc 'releaseSession(sessionId, sessionData);' "$CHUNKED_ROUTE")" -ne 3 ]; then
+  printf '%s\n' 'Invalid starts, failed chunks, and successful terminal chunks must release their exact acquired session.' >&2
   exit 1
 fi
 
@@ -166,6 +168,70 @@ for plan_contract in \
   fi
 done
 
+for sequence_contract in \
+  "export const SESSION_CHUNK_SEQUENCE_ERROR = 'Chunk session must start at chunk 0 and continue in order'" \
+  'nextChunk: number;' \
+  'nextChunk: 0,' \
+  'const sessionExisted = sessions.has(sessionId);' \
+  'if (sessionData.activeLease)' \
+  'if (chunk !== sessionData.nextChunk)' \
+  'if (!sessionExisted) releaseSession(sessionId, sessionData);' \
+  'sessionData.nextChunk = chunkIndex + 1;'; do
+  if ! grep -Fq "$sequence_contract" "$CHUNKED_ROUTE"; then
+    printf '%s\n' "Chunk sessions must preserve exact sequence contract: $sequence_contract" >&2
+    exit 1
+  fi
+done
+
+active_line=$(grep -nF 'if (sessionData.activeLease)' "$CHUNKED_ROUTE" | tail -1 | cut -d: -f1)
+sequence_line=$(grep -nF 'if (chunk !== sessionData.nextChunk)' "$CHUNKED_ROUTE" | cut -d: -f1)
+lease_line=$(grep -nF 'const sessionLease = acquireSessionLease(sessionData);' "$CHUNKED_ROUTE" | cut -d: -f1)
+if [ -z "$active_line" ] || [ -z "$sequence_line" ] || [ -z "$lease_line" ] || \
+   [ "$active_line" -ge "$sequence_line" ] || [ "$sequence_line" -ge "$lease_line" ]; then
+  printf '%s\n' 'Chunk requests must preserve overlap errors, then validate sequence before lease acquisition.' >&2
+  exit 1
+fi
+
+for sequence_test_contract in \
+  'async function runChunkSessionSequenceAssertion()' \
+  'await runChunkSessionSequenceAssertion();' \
+  "const sessionId = 'ordered-chunk-session'" \
+  'for (const chunk of [0, 2])' \
+  'error: SESSION_CHUNK_SEQUENCE_ERROR' \
+  'assert.equal(fetchCount, 0)' \
+  'assert.equal(fetchCount, 1)'; do
+  if ! grep -Fq "$sequence_test_contract" "$ANALYZE_BOT_TEST"; then
+    printf '%s\n' "Chunk sequence tests must preserve regression contract: $sequence_test_contract" >&2
+    exit 1
+  fi
+done
+
+if [ "$(grep -Fc 'runChunkSessionSequenceAssertion' "$ANALYZE_BOT_TEST")" -ne 2 ]; then
+  printf '%s\n' 'Chunk sequence regression must retain one definition and one invocation.' >&2
+  exit 1
+fi
+
+for document in "$README" "$ROOT_DIR/SECURITY.md" "$ROOT_DIR/VISION.md" "$ROOT_DIR/CHANGES.md"; do
+  if ! grep -Fiq 'exact chunk sequence' "$document"; then
+    printf '%s\n' "$document must document exact chunk sequence validation." >&2
+    exit 1
+  fi
+done
+
+for sequence_plan_contract in \
+  'status: completed' \
+  'Node 20' \
+  'Node 24' \
+  'npm run verify' \
+  'external working directory' \
+  'Seven isolated hostile mutations were rejected' \
+  'git diff --check'; do
+  if ! grep -Fq "$sequence_plan_contract" "$SESSION_SEQUENCE_PLAN"; then
+    printf '%s\n' "Chunk sequence plan must retain completed evidence: $sequence_plan_contract" >&2
+    exit 1
+  fi
+done
+
 cleanup_line=$(grep -nF 'releaseSession(sessionId, sessionData);' "$CHUNKED_ROUTE" | tail -1 | cut -d: -f1)
 error_line=$(grep -nF 'await sendProgress(controller, {' "$CHUNKED_ROUTE" | tail -1 | cut -d: -f1)
 if [ -z "$cleanup_line" ] || [ -z "$error_line" ] || [ "$cleanup_line" -ge "$error_line" ]; then
@@ -177,7 +243,7 @@ for cleanup_test_contract in \
   'async function runFailedChunkSessionCleanupAssertion()' \
   "class FailingTextEncoder" \
   "botName: 'AnotherBot'" \
-  'assert.match(await reusedResponse.text(), /"type":"complete"/);' \
+  'assert.match(await reusedResponse.text(), /"type":"chunk_complete"/);' \
   'await runFailedChunkSessionCleanupAssertion();'; do
   if ! grep -Fq "$cleanup_test_contract" "$ANALYZE_BOT_TEST"; then
     printf '%s\n' "Failed chunk session cleanup must retain its regression contract: $cleanup_test_contract" >&2

@@ -2,36 +2,12 @@
 
 import { useState } from 'react';
 
-import { consumeSseStream } from './sse-stream-consumer';
-
-interface TestResult {
-  name: string;
-  status: 'passed' | 'failed' | 'pending' | 'running';
-  details?: string;
-  score?: number;
-  error?: string;
-  debugInfo?: {
-    request?: string;
-    response?: string;
-    timestamp?: string;
-    duration?: number;
-    expectedBehavior?: string;
-    actualBehavior?: string;
-  };
-}
-
-interface BotScorecard {
-  botName: string;
-  overallScore: number;
-  categories: {
-    branding: TestResult[];
-    functionality: TestResult[];
-    usability: TestResult[];
-    fileSupport: TestResult[];
-    errorHandling: TestResult[];
-  };
-  responseTime?: number;
-}
+import {
+  createChunkedAnalysisRunner,
+  type BotScorecard,
+  type ProgressUpdate,
+  type TestResult,
+} from './chunked-analysis-runner';
 
 interface ProgressState {
   message: string;
@@ -46,19 +22,6 @@ interface ProgressState {
     fileSupport: TestResult[];
     errorHandling: TestResult[];
   };
-}
-
-interface ProgressUpdate {
-  type: string;
-  category?: string;
-  testName?: string;
-  message?: string;
-  result?: TestResult;
-  progress?: number;
-  currentTest?: number;
-  totalTests?: number;
-  sessionId?: string;
-  nextChunk?: number;
 }
 
 // Component for displaying individual test results with expandable details
@@ -198,86 +161,21 @@ export default function Home() {
       }
     });
     
-    await runChunkedAnalysis(0, null);
-  };
-
-  const runChunkedAnalysis = async (chunkIndex: number, sessionId: string | null, retryCount = 0): Promise<void> => {
-    const MAX_RETRIES = 3;
-    
-    try {
-      const response = await fetch('/api/analyze-bot-chunked', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          botName,
-          apiKey,
-          chunk: chunkIndex,
-          sessionId
-        })
-      });
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const reader = response.body?.getReader();
-      if (!reader) {
-        throw new Error('No response body');
-      }
-
-      let currentSessionId = sessionId;
-      let nextChunk: number | null = null;
-
-      const processUpdate = (data: ProgressUpdate): boolean => {
-        if (data.sessionId && !currentSessionId) {
-          currentSessionId = data.sessionId;
-        }
-
-        if (data.type === 'chunk_complete' && data.nextChunk !== undefined) {
-          nextChunk = data.nextChunk;
-        }
-
-        handleProgressUpdate(data);
-
-        if (data.type === 'complete') {
-          setIsRunning(false);
-          return true;
-        }
-
-        return false;
-      };
-
-      if (await consumeSseStream<ProgressUpdate>(reader, processUpdate)) return;
-
-      // If we have a next chunk, continue the analysis
-      if (nextChunk !== null) {
-        const scheduledChunk = nextChunk;
-        setTimeout(() => {
-          runChunkedAnalysis(scheduledChunk, currentSessionId);
-        }, 1000); // Small delay before next chunk
-      } else {
-        setIsRunning(false);
-      }
-
-    } catch (error) {
-      console.log(`Chunk ${chunkIndex} failed (attempt ${retryCount + 1}):`, error);
-      
-      if (retryCount < MAX_RETRIES) {
-        // Retry with exponential backoff
-        const delay = Math.pow(2, retryCount) * 1000;
+    const runChunkedAnalysis = createChunkedAnalysisRunner({
+      botName,
+      apiKey,
+      onProgressUpdate: handleProgressUpdate,
+      setIsRunning,
+      setRetryMessage: message => {
         setProgressState(prev => prev ? {
           ...prev,
-          message: `Connection lost, retrying in ${delay/1000}s... (attempt ${retryCount + 1}/${MAX_RETRIES})`
+          message,
         } : null);
-        
-        setTimeout(() => {
-          runChunkedAnalysis(chunkIndex, sessionId, retryCount + 1);
-        }, delay);
-      } else {
-        alert(`Analysis failed after ${MAX_RETRIES} retries: ${error instanceof Error ? error.message : 'Unknown error'}`);
-        setIsRunning(false);
-      }
-    }
+      },
+      onError: message => alert(message),
+    });
+
+    await runChunkedAnalysis(0, null);
   };
 
   const handleProgressUpdate = (data: ProgressUpdate) => {

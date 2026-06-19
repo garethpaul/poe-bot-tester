@@ -34,12 +34,15 @@ for path in \
   "SECURITY.md" \
   "VISION.md" \
   "eslint.config.mjs" \
+  "next.config.ts" \
   "package.json" \
   "package-lock.json" \
   "tsconfig.json" \
   "scripts/test-analyze-bot.ts" \
   "scripts/test-sse-data-decoder.ts" \
+  "scripts/test-chunked-analysis-runner.ts" \
   "src/app/sse-data-decoder.ts" \
+  "src/app/chunked-analysis-runner.ts" \
   "src/app/api/request-body.ts" \
   "src/app/api/analyze-bot-chunked/route.ts" \
   "src/app/api/analyze-bot-stream/route.ts" \
@@ -453,7 +456,7 @@ done
 for package_script in \
   '"lint": "eslint ."' \
   '"typecheck": "tsc --noEmit"' \
-  '"test": "tsx scripts/test-analyze-bot.ts && tsx scripts/test-sse-data-decoder.ts && tsx scripts/test-sse-stream-consumer.ts"' \
+  '"test": "tsx scripts/test-analyze-bot.ts && tsx scripts/test-sse-data-decoder.ts && tsx scripts/test-sse-stream-consumer.ts && tsx scripts/test-chunked-analysis-runner.ts"' \
   '"audit": "npm audit --audit-level=moderate"' \
   '"verify": "npm run lint && npm run typecheck && npm test && npm run build && npm run audit"'; do
   if ! grep -Fq "$package_script" "$PACKAGE_JSON"; then
@@ -492,8 +495,11 @@ CHUNKED_ROUTE="$ROOT_DIR/src/app/api/analyze-bot-chunked/route.ts"
 STREAM_ROUTE="$ROOT_DIR/src/app/api/analyze-bot-stream/route.ts"
 TEST_BOT_ROUTE="$ROOT_DIR/src/app/api/test-bot/route.ts"
 REQUEST_BODY="$ROOT_DIR/src/app/api/request-body.ts"
+NEXT_CONFIG="$ROOT_DIR/next.config.ts"
 ROUTE_TESTS="$ROOT_DIR/scripts/test-analyze-bot.ts"
 PAGE="$ROOT_DIR/src/app/page.tsx"
+CHUNKED_RUNNER="$ROOT_DIR/src/app/chunked-analysis-runner.ts"
+CHUNKED_RUNNER_TESTS="$ROOT_DIR/scripts/test-chunked-analysis-runner.ts"
 SSE_DECODER="$ROOT_DIR/src/app/sse-data-decoder.ts"
 SSE_TESTS="$ROOT_DIR/scripts/test-sse-data-decoder.ts"
 SSE_CONSUMER="$ROOT_DIR/src/app/sse-stream-consumer.ts"
@@ -515,11 +521,58 @@ for decoder_contract in \
   fi
 done
 
+for next_config_contract in \
+  'fileURLToPath(import.meta.url)' \
+  'const repoRoot = dirname' \
+  'turbopack:' \
+  'root: repoRoot'; do
+  if ! grep -Fq "$next_config_contract" "$NEXT_CONFIG"; then
+    printf '%s\n' "Next.js config must pin Turbopack to the repository root: $next_config_contract" >&2
+    exit 1
+  fi
+done
+
+for next_config_test_contract in \
+  'const nextConfigSource = readProjectFile' \
+  'assert.match(nextConfigSource, /turbopack/)' \
+  'assert.match(nextConfigSource, /root: repoRoot/)'; do
+  if ! grep -Fq "$next_config_test_contract" "$ROUTE_TESTS"; then
+    printf '%s\n' "Route tests must preserve Next.js root pin coverage: $next_config_test_contract" >&2
+    exit 1
+  fi
+done
+
 for page_contract in \
-  "import { consumeSseStream } from './sse-stream-consumer'" \
-  "if (await consumeSseStream<ProgressUpdate>(reader, processUpdate)) return;"; do
+  "createChunkedAnalysisRunner" \
+  "onProgressUpdate: handleProgressUpdate" \
+  "setRetryMessage: message =>"; do
   if ! grep -Fq "$page_contract" "$PAGE"; then
     printf '%s\n' "page.tsx must preserve buffered SSE integration: $page_contract" >&2
+    exit 1
+  fi
+done
+
+for runner_contract in \
+  "import {" \
+  "consumeSseStream" \
+  "let currentSessionId = sessionId" \
+  "if (data.sessionId && !currentSessionId)" \
+  "const retrySessionId = currentSessionId" \
+  "runChunkedAnalysis(chunkIndex, retrySessionId, retryCount + 1)" \
+  "runChunkedAnalysis(scheduledChunk, scheduledSessionId)"; do
+  if ! grep -Fq "$runner_contract" "$CHUNKED_RUNNER"; then
+    printf '%s\n' "Chunked analysis runner must preserve learned-session retry behavior: $runner_contract" >&2
+    exit 1
+  fi
+done
+
+for runner_test_contract in \
+  "dropped stream after session id" \
+  "sessionId: 'learned-session'" \
+  "assert.equal(fetchBodies[1].sessionId, 'learned-session')" \
+  "assert.equal(fetchBodies[1].chunk, 0)"; do
+  if ! grep -Fq "$runner_test_contract" "$CHUNKED_RUNNER_TESTS"; then
+    printf '%s\n' "Chunked analysis runner tests must preserve learned-session retry coverage: $runner_test_contract" >&2
     exit 1
   fi
 done
@@ -550,8 +603,9 @@ for consumer_test_contract in \
   fi
 done
 
-if ! grep -Fq 'tsx scripts/test-sse-stream-consumer.ts' "$ROOT_DIR/package.json"; then
-  printf '%s\n' "Package test gate must execute the SSE consumer lifecycle suite." >&2
+if ! grep -Fq 'tsx scripts/test-sse-stream-consumer.ts' "$ROOT_DIR/package.json" ||
+  ! grep -Fq 'tsx scripts/test-chunked-analysis-runner.ts' "$ROOT_DIR/package.json"; then
+  printf '%s\n' "Package test gate must execute the SSE consumer lifecycle and chunked analysis runner suites." >&2
   exit 1
 fi
 

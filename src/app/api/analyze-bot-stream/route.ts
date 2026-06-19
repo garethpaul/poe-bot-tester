@@ -5,6 +5,11 @@ import {
   normalizePoeBotName,
   normalizeRequiredText,
 } from '../poe-bot-name';
+import {
+  INVALID_JSON_BODY_ERROR,
+  JSON_BODY_TOO_LARGE_ERROR,
+  parseJsonObject,
+} from '../request-body';
 
 interface ProgressUpdate {
   type: 'progress' | 'test_start' | 'test_complete' | 'category_start' | 'category_complete' | 'complete' | 'error';
@@ -26,7 +31,17 @@ async function sendProgress(controller: ReadableStreamDefaultController<Uint8Arr
 }
 
 export async function POST(request: NextRequest) {
-  const { botName: rawBotName, apiKey: rawApiKey } = await request.json();
+  const parsedBody = await parseJsonObject(request);
+  if (!parsedBody.ok) {
+    const oversized = parsedBody.reason === 'too_large';
+    return new Response(
+      oversized ? JSON_BODY_TOO_LARGE_ERROR : INVALID_JSON_BODY_ERROR,
+      { status: oversized ? 413 : 400 }
+    );
+  }
+  const body = parsedBody.value;
+
+  const { botName: rawBotName, apiKey: rawApiKey } = body;
   const apiKey = normalizeRequiredText(rawApiKey);
 
   if (!rawBotName || !apiKey) {

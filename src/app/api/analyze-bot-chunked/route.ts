@@ -5,16 +5,17 @@ import {
   normalizePoeBotName,
   normalizeRequiredText,
 } from '../poe-bot-name';
-import { POE_METADATA_TIMEOUT_MS } from '../analyze-bot/scoring';
+import {
+  INVALID_JSON_BODY_ERROR,
+  JSON_BODY_TOO_LARGE_ERROR,
+  parseJsonObject,
+} from '../request-body';
+import {
+  calculateOverallScore,
+  POE_METADATA_TIMEOUT_MS,
+} from '../analyze-bot/scoring';
 
 export const runtime = 'edge';
-
-interface ChunkedAnalysisRequest {
-  botName: string;
-  apiKey: string;
-  chunk?: unknown; // Which chunk to process (0-based)
-  sessionId?: string; // Session to track progress
-}
 
 interface ProgressUpdate {
   type: 'progress' | 'test_start' | 'test_complete' | 'chunk_complete' | 'complete' | 'error';
@@ -93,6 +94,9 @@ const INVALID_CHUNK_INDEX_ERROR = `Chunk must be an integer between 0 and ${MAX_
 const CHUNK_SESSION_ID_PATTERN = /^[A-Za-z0-9_-]{1,96}$/;
 const INVALID_SESSION_ID_ERROR =
   'Session ID may only contain letters, numbers, underscores, and hyphens';
+export const SESSION_BOT_MISMATCH_ERROR = 'Session ID is already in use for another bot';
+export const SESSION_IN_PROGRESS_ERROR = 'Session already has a chunk in progress';
+export const SESSION_CHUNK_SEQUENCE_ERROR = 'Chunk session must start at chunk 0 and continue in order';
 
 function normalizeChunkIndex(value: unknown): number | null {
   if (typeof value !== 'number' || !Number.isInteger(value)) return null;
@@ -114,6 +118,8 @@ function normalizeChunkSessionId(value: unknown, fallback: string): string | nul
 
 interface SessionData {
   botName: string;
+  activeLease: symbol | null;
+  nextChunk: number;
   results: {
     branding: unknown[];
     functionality: unknown[];
@@ -127,6 +133,49 @@ interface SessionData {
 // Simple in-memory session storage for demo (use Redis/DB in production)
 const sessions = new Map<string, SessionData>();
 
+function acquireSession(sessionId: string, botName: string): SessionData | null {
+  const existingSession = sessions.get(sessionId);
+  if (existingSession) {
+    return existingSession.botName === botName ? existingSession : null;
+  }
+
+  const sessionData: SessionData = {
+    botName,
+    activeLease: null,
+    nextChunk: 0,
+    results: {
+      branding: [],
+      functionality: [],
+      usability: [],
+      fileSupport: [],
+      errorHandling: []
+    },
+    metadata: null
+  };
+  sessions.set(sessionId, sessionData);
+  return sessionData;
+}
+
+function acquireSessionLease(sessionData: SessionData): symbol | null {
+  if (sessionData.activeLease) return null;
+
+  const lease = Symbol('chunk-session-request');
+  sessionData.activeLease = lease;
+  return lease;
+}
+
+function releaseSessionLease(sessionData: SessionData, lease: symbol): void {
+  if (sessionData.activeLease === lease) {
+    sessionData.activeLease = null;
+  }
+}
+
+function releaseSession(sessionId: string, sessionData: SessionData): void {
+  if (sessions.get(sessionId) === sessionData) {
+    sessions.delete(sessionId);
+  }
+}
+
 async function sendProgress(controller: ReadableStreamDefaultController<Uint8Array>, update: ProgressUpdate) {
   const data = `data: ${JSON.stringify(update)}\n\n`;
   controller.enqueue(new TextEncoder().encode(data));
@@ -137,6 +186,7 @@ async function processChunk(
   apiKey: string,
   chunkIndex: number,
   sessionId: string,
+  sessionData: SessionData,
   controller: ReadableStreamDefaultController<Uint8Array>
 ): Promise<void> {
   const chunk = TEST_CHUNKS[chunkIndex];
@@ -150,23 +200,6 @@ async function processChunk(
     totalTests: TEST_CHUNKS.length,
     sessionId
   });
-
-  // Get or create session data
-  let sessionData = sessions.get(sessionId);
-  if (!sessionData) {
-    sessionData = {
-      botName,
-      results: {
-        branding: [],
-        functionality: [],
-        usability: [],
-        fileSupport: [],
-        errorHandling: []
-      },
-      metadata: null
-    };
-    sessions.set(sessionId, sessionData);
-  }
 
   // Process each test in the chunk with timeout awareness
   const startTime = Date.now();
@@ -239,19 +272,11 @@ async function processChunk(
     }
   }
 
-  // Update session
-  sessions.set(sessionId, sessionData);
-
   // Check if this is the last chunk
   if (chunkIndex >= TEST_CHUNKS.length - 1) {
     // Calculate final score and send completion
     const allResults = Object.values(sessionData.results).flat();
-    const overallScore = Math.round(
-      allResults.reduce((sum: number, result: unknown) => {
-        const testResult = result as { score?: number };
-        return sum + (testResult.score || 0);
-      }, 0) / allResults.length
-    );
+    const overallScore = calculateOverallScore(allResults);
 
     const scorecard = {
       botName,
@@ -268,9 +293,10 @@ async function processChunk(
       sessionId
     });
 
-    // Clean up session
-    sessions.delete(sessionId);
+    // Clean up only the exact session acquired by this request.
+    releaseSession(sessionId, sessionData);
   } else {
+    sessionData.nextChunk = chunkIndex + 1;
     // Signal to continue with next chunk
     await sendProgress(controller, {
       type: 'chunk_complete',
@@ -1346,7 +1372,22 @@ async function testResponseTime(botName: string, apiKey: string, timestamp: stri
 }
 
 export async function POST(request: NextRequest) {
-  const { botName: rawBotName, apiKey: rawApiKey, chunk: rawChunk = 0, sessionId: providedSessionId }: ChunkedAnalysisRequest = await request.json();
+  const parsedBody = await parseJsonObject(request);
+  if (!parsedBody.ok) {
+    const oversized = parsedBody.reason === 'too_large';
+    return NextResponse.json(
+      { error: oversized ? JSON_BODY_TOO_LARGE_ERROR : INVALID_JSON_BODY_ERROR },
+      { status: oversized ? 413 : 400 }
+    );
+  }
+  const body = parsedBody.value;
+
+  const {
+    botName: rawBotName,
+    apiKey: rawApiKey,
+    chunk: rawChunk = 0,
+    sessionId: providedSessionId,
+  } = body;
   const apiKey = normalizeRequiredText(rawApiKey);
 
   if (!rawBotName || !apiKey) {
@@ -1368,17 +1409,39 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: INVALID_SESSION_ID_ERROR }, { status: 400 });
   }
 
+  const sessionExisted = sessions.has(sessionId);
+  const sessionData = acquireSession(sessionId, botName);
+  if (!sessionData) {
+    return NextResponse.json({ error: SESSION_BOT_MISMATCH_ERROR }, { status: 409 });
+  }
+
+  if (sessionData.activeLease) {
+    return NextResponse.json({ error: SESSION_IN_PROGRESS_ERROR }, { status: 409 });
+  }
+
+  if (chunk !== sessionData.nextChunk) {
+    if (!sessionExisted) releaseSession(sessionId, sessionData);
+    return NextResponse.json({ error: SESSION_CHUNK_SEQUENCE_ERROR }, { status: 409 });
+  }
+
+  const sessionLease = acquireSessionLease(sessionData);
+  if (!sessionLease) {
+    return NextResponse.json({ error: SESSION_IN_PROGRESS_ERROR }, { status: 409 });
+  }
+
   const stream = new ReadableStream({
     async start(controller) {
       try {
-        await processChunk(botName, apiKey, chunk, sessionId, controller);
+        await processChunk(botName, apiKey, chunk, sessionId, sessionData, controller);
       } catch (error) {
+        releaseSession(sessionId, sessionData);
         await sendProgress(controller, {
           type: 'error',
           message: error instanceof Error ? error.message : 'Analysis failed',
           sessionId
         });
       } finally {
+        releaseSessionLease(sessionData, sessionLease);
         controller.close();
       }
     }

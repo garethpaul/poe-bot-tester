@@ -2,11 +2,17 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
 import { POST as analyzeBotPost } from '../src/app/api/analyze-bot/route';
-import { POST as chunkedAnalyzeBotPost } from '../src/app/api/analyze-bot-chunked/route';
+import {
+  POST as chunkedAnalyzeBotPost,
+  SESSION_BOT_MISMATCH_ERROR,
+  SESSION_CHUNK_SEQUENCE_ERROR,
+  SESSION_IN_PROGRESS_ERROR,
+} from '../src/app/api/analyze-bot-chunked/route';
 import { POST as streamAnalyzeBotPost } from '../src/app/api/analyze-bot-stream/route';
 import {
   analyzeBotName,
   analyzeDescription,
+  calculateOverallScore,
   parseBotPage,
 } from '../src/app/api/analyze-bot/scoring';
 import {
@@ -14,6 +20,12 @@ import {
   normalizePoeBotName,
   normalizeRequiredText,
 } from '../src/app/api/poe-bot-name';
+import {
+  INVALID_JSON_BODY_ERROR,
+  JSON_BODY_TOO_LARGE_ERROR,
+  MAX_JSON_BODY_BYTES,
+  parseJsonObject,
+} from '../src/app/api/request-body';
 import { POST as testBotPost } from '../src/app/api/test-bot/route';
 import { GET as testFilesGet } from '../src/app/api/test-files/route';
 
@@ -22,11 +34,108 @@ function readProjectFile(path: string): string {
 }
 
 function jsonRequest<T>(payload: unknown): T {
-  return { json: async () => payload } as T;
+  return rawRequest<T>(JSON.stringify(payload));
+}
+
+function malformedJsonRequest<T>(): T {
+  return rawRequest<T>('{');
+}
+
+function rawRequest<T>(body: string, headers: HeadersInit = {}): T {
+  return new Request('http://localhost/api/test', {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      ...headers,
+    },
+    body,
+  }) as T;
 }
 
 async function readJson(response: Response): Promise<unknown> {
   return response.json();
+}
+
+async function runRequestBodyAssertions() {
+  assert.deepEqual(await parseJsonObject(jsonRequest<Request>({ ok: true })), {
+    ok: true,
+    value: { ok: true },
+  });
+  assert.deepEqual(await parseJsonObject(malformedJsonRequest<Request>()), {
+    ok: false,
+    reason: 'invalid',
+  });
+  for (const payload of [[], 'text', null]) {
+    assert.deepEqual(await parseJsonObject(jsonRequest<Request>(payload)), {
+      ok: false,
+      reason: 'invalid',
+    });
+  }
+
+  let declaredBodyRead = false;
+  const declaredOversizedRequest = {
+    headers: new Headers({ 'content-length': String(MAX_JSON_BODY_BYTES + 1) }),
+    body: {
+      getReader() {
+        declaredBodyRead = true;
+        throw new Error('declared oversized bodies must not be read');
+      },
+    } as unknown as ReadableStream<Uint8Array>,
+  };
+  assert.deepEqual(await parseJsonObject(
+    declaredOversizedRequest as unknown as Pick<Request, 'body' | 'headers'>
+  ), {
+    ok: false,
+    reason: 'too_large',
+  });
+  assert.equal(declaredBodyRead, false);
+
+  const extremelyLargeDeclaredRequest = {
+    ...declaredOversizedRequest,
+    headers: new Headers({ 'content-length': '9007199254740991000' }),
+  };
+  assert.deepEqual(await parseJsonObject(
+    extremelyLargeDeclaredRequest as unknown as Pick<Request, 'body' | 'headers'>
+  ), {
+    ok: false,
+    reason: 'too_large',
+  });
+  assert.equal(declaredBodyRead, false);
+
+  let streamCancelled = false;
+  const oversizedStream = new ReadableStream<Uint8Array>({
+    start(controller) {
+      controller.enqueue(new Uint8Array(MAX_JSON_BODY_BYTES));
+      controller.enqueue(new Uint8Array(1));
+    },
+    cancel() {
+      streamCancelled = true;
+    },
+  });
+  assert.deepEqual(await parseJsonObject(
+    { headers: new Headers(), body: oversizedStream } as unknown as Pick<Request, 'body' | 'headers'>
+  ), {
+    ok: false,
+    reason: 'too_large',
+  });
+  assert.equal(streamCancelled, true);
+
+  const failingStream = new ReadableStream<Uint8Array>({
+    pull() {
+      throw new Error('request stream failed');
+    },
+  });
+  assert.deepEqual(await parseJsonObject(
+    { headers: new Headers(), body: failingStream } as unknown as Pick<Request, 'body' | 'headers'>
+  ), {
+    ok: false,
+    reason: 'invalid',
+  });
+
+  const exactLimitBody = JSON.stringify({ value: 'é'.repeat((MAX_JSON_BODY_BYTES - 12) / 2) });
+  assert.equal(new TextEncoder().encode(exactLimitBody).byteLength, MAX_JSON_BODY_BYTES);
+  const exactLimitResult = await parseJsonObject(rawRequest<Request>(exactLimitBody));
+  assert.equal(exactLimitResult.ok, true);
 }
 
 const sampleHtml = `
@@ -111,6 +220,15 @@ assert.deepEqual(
   ]
 );
 
+assert.equal(calculateOverallScore([]), 0);
+assert.equal(calculateOverallScore([{ score: 80 }, { score: 81 }]), 81);
+assert.equal(calculateOverallScore([{ score: 100 }, {}, { score: 50 }]), 50);
+assert.equal(
+  calculateOverallScore([{ score: Number.NaN }, { score: Number.POSITIVE_INFINITY }, { score: 90 }]),
+  30
+);
+assert.equal(calculateOverallScore([{ score: -10 }, { score: 130 }]), 60);
+
 const sparseDescriptionResults = analyzeDescription({ ...metadata, description: 'short' });
 assert.deepEqual(
   sparseDescriptionResults.map(result => [result.status, result.score]),
@@ -159,6 +277,7 @@ const makefile = readProjectFile('Makefile');
 const readme = readProjectFile('README.md');
 const changes = readProjectFile('CHANGES.md');
 const packageManifest = readProjectFile('package.json');
+const nextConfigSource = readProjectFile('next.config.ts');
 const security = readProjectFile('SECURITY.md');
 const checkPlan = readProjectFile('docs/plans/2026-06-08-poe-bot-tester-check-wrapper.md');
 const vision = readProjectFile('VISION.md');
@@ -175,6 +294,9 @@ const deterministicStreamPlan = readProjectFile('docs/plans/2026-06-09-poe-bot-t
 const chunkIndexPlan = readProjectFile('docs/plans/2026-06-09-poe-bot-tester-chunk-index-validation.md');
 const metadataAttributePlan = readProjectFile('docs/plans/2026-06-09-poe-bot-tester-meta-attribute-order.md');
 const sessionIdPlan = readProjectFile('docs/plans/2026-06-09-poe-bot-tester-session-id-validation.md');
+const sessionBotBindingPlan = readProjectFile('docs/plans/2026-06-15-chunk-session-bot-binding.md');
+const failedSessionCleanupPlan = readProjectFile('docs/plans/2026-06-15-failed-stream-session-cleanup.md');
+const sessionOwnershipCleanupPlan = readProjectFile('docs/plans/2026-06-16-session-ownership-cleanup.md');
 const testFileTypePlan = readProjectFile('docs/plans/2026-06-10-poe-bot-tester-test-file-type-validation.md');
 const metadataTimeoutPlan = readProjectFile('docs/plans/2026-06-12-poe-metadata-fetch-timeout.md');
 
@@ -184,6 +306,8 @@ assert.match(packageManifest, /"pretypecheck": "node -e/);
 assert.match(packageManifest, /"prebuild": "node -e/);
 assert.match(packageManifest, /\.next/);
 assert.match(packageManifest, /tsconfig\.tsbuildinfo/);
+assert.match(nextConfigSource, /turbopack/);
+assert.match(nextConfigSource, /root: repoRoot/);
 assert.match(readme, /make check/);
 assert.match(changes, /make check/);
 assert.match(checkPlan, /Completed/);
@@ -248,6 +372,56 @@ assert.match(sessionIdPlan, /status: completed/);
 assert.match(sessionIdPlan, /normalizeChunkSessionId/);
 assert.match(sessionIdPlan, /session map/);
 assert.match(sessionIdPlan, /npm test/);
+assert.match(chunkedRouteSource, /function acquireSession/);
+assert.match(chunkedRouteSource, /existingSession\.botName === botName \? existingSession : null/);
+assert.match(chunkedRouteSource, /SESSION_BOT_MISMATCH_ERROR[\s\S]*status: 409/);
+assert.match(chunkedRouteSource, /function releaseSession/);
+assert.match(chunkedRouteSource, /sessions\.get\(sessionId\) === sessionData/);
+assert.match(chunkedRouteSource, /function acquireSessionLease/);
+assert.match(chunkedRouteSource, /if \(sessionData\.activeLease\) return null/);
+assert.match(chunkedRouteSource, /function releaseSessionLease/);
+assert.match(chunkedRouteSource, /sessionData\.activeLease === lease/);
+assert.match(chunkedRouteSource, /SESSION_IN_PROGRESS_ERROR[\s\S]*status: 409/);
+assert.match(chunkedRouteSource, /nextChunk: number/);
+assert.match(chunkedRouteSource, /nextChunk: 0/);
+assert.match(chunkedRouteSource, /chunk !== sessionData\.nextChunk/);
+assert.match(chunkedRouteSource, /sessionData\.activeLease[\s\S]*chunk !== sessionData\.nextChunk/);
+assert.match(chunkedRouteSource, /if \(!sessionExisted\) releaseSession\(sessionId, sessionData\)/);
+assert.match(chunkedRouteSource, /sessionData\.nextChunk = chunkIndex \+ 1/);
+assert.match(chunkedRouteSource, /SESSION_CHUNK_SEQUENCE_ERROR[\s\S]*status: 409/);
+assert.match(
+  chunkedRouteSource,
+  /finally {[\s\S]*releaseSessionLease\(sessionData, sessionLease\);[\s\S]*controller\.close\(\);/
+);
+assert.match(chunkedRouteSource, /catch \(error\) {[\s\S]*releaseSession\(sessionId, sessionData\);[\s\S]*await sendProgress/);
+assert.equal(
+  (chunkedRouteSource.match(/sessions\.set\(sessionId, sessionData\);/g) ?? []).length,
+  1
+);
+assert.equal(
+  (chunkedRouteSource.match(/releaseSession\(sessionId, sessionData\);/g) ?? []).length,
+  3
+);
+assert.match(
+  chunkedRouteSource,
+  /type: 'complete'[\s\S]*releaseSession\(sessionId, sessionData\);/
+);
+assert.match(sessionBotBindingPlan, /Bind each active chunk session/);
+assert.match(sessionBotBindingPlan, /before creating an\s+SSE response/);
+assert.match(sessionBotBindingPlan, /status: completed/i);
+assert.match(sessionBotBindingPlan, /Eight isolated hostile mutations were rejected/);
+assert.match(sessionBotBindingPlan, /make check/);
+assert.match(failedSessionCleanupPlan, /Status: Completed/i);
+assert.match(failedSessionCleanupPlan, /terminal stream failure/i);
+assert.match(failedSessionCleanupPlan, /isolated hostile mutations were rejected/i);
+assert.match(failedSessionCleanupPlan, /make check/);
+assert.match(sessionOwnershipCleanupPlan, /Status: Completed/i);
+assert.match(sessionOwnershipCleanupPlan, /stale acquired session/i);
+assert.match(sessionOwnershipCleanupPlan, /isolated hostile mutations were rejected/i);
+assert.match(sessionOwnershipCleanupPlan, /make check/);
+for (const document of [readme, security, vision, changes]) {
+  assert.match(document, /exact-session ownership/i);
+}
 assert.match(scoringSource, /metadata\.description\.trim\(\)/);
 assert.match(scoringSource, /function findMetaContent/);
 assert.match(scoringSource, /function findAttribute/);
@@ -288,6 +462,76 @@ async function runRouteAssertions() {
   }) as typeof fetch;
 
   try {
+    const oversizedBody = 'x'.repeat(MAX_JSON_BODY_BYTES + 1);
+
+    const analyzeOversized = await analyzeBotPost(
+      rawRequest<Parameters<typeof analyzeBotPost>[0]>(oversizedBody)
+    );
+    assert.equal(analyzeOversized.status, 413);
+    assert.deepEqual(await readJson(analyzeOversized), {
+      error: JSON_BODY_TOO_LARGE_ERROR,
+    });
+
+    const testBotOversized = await testBotPost(
+      rawRequest<Parameters<typeof testBotPost>[0]>(oversizedBody)
+    );
+    assert.equal(testBotOversized.status, 413);
+    assert.deepEqual(await readJson(testBotOversized), {
+      error: JSON_BODY_TOO_LARGE_ERROR,
+    });
+
+    const streamOversized = await streamAnalyzeBotPost(
+      rawRequest<Parameters<typeof streamAnalyzeBotPost>[0]>(oversizedBody)
+    );
+    assert.equal(streamOversized.status, 413);
+    assert.equal(await streamOversized.text(), JSON_BODY_TOO_LARGE_ERROR);
+
+    const chunkedOversized = await chunkedAnalyzeBotPost(
+      rawRequest<Parameters<typeof chunkedAnalyzeBotPost>[0]>(oversizedBody)
+    );
+    assert.equal(chunkedOversized.status, 413);
+    assert.deepEqual(await readJson(chunkedOversized), {
+      error: JSON_BODY_TOO_LARGE_ERROR,
+    });
+
+    const analyzeMalformedJson = await analyzeBotPost(
+      malformedJsonRequest<Parameters<typeof analyzeBotPost>[0]>()
+    );
+    assert.equal(analyzeMalformedJson.status, 400);
+    assert.deepEqual(await readJson(analyzeMalformedJson), {
+      error: INVALID_JSON_BODY_ERROR,
+    });
+
+    const testBotMalformedJson = await testBotPost(
+      malformedJsonRequest<Parameters<typeof testBotPost>[0]>()
+    );
+    assert.equal(testBotMalformedJson.status, 400);
+    assert.deepEqual(await readJson(testBotMalformedJson), {
+      error: INVALID_JSON_BODY_ERROR,
+    });
+
+    const streamMalformedJson = await streamAnalyzeBotPost(
+      malformedJsonRequest<Parameters<typeof streamAnalyzeBotPost>[0]>()
+    );
+    assert.equal(streamMalformedJson.status, 400);
+    assert.equal(await streamMalformedJson.text(), INVALID_JSON_BODY_ERROR);
+
+    const chunkedMalformedJson = await chunkedAnalyzeBotPost(
+      malformedJsonRequest<Parameters<typeof chunkedAnalyzeBotPost>[0]>()
+    );
+    assert.equal(chunkedMalformedJson.status, 400);
+    assert.deepEqual(await readJson(chunkedMalformedJson), {
+      error: INVALID_JSON_BODY_ERROR,
+    });
+
+    const analyzeArrayBody = await analyzeBotPost(
+      jsonRequest<Parameters<typeof analyzeBotPost>[0]>([])
+    );
+    assert.equal(analyzeArrayBody.status, 400);
+    assert.deepEqual(await readJson(analyzeArrayBody), {
+      error: INVALID_JSON_BODY_ERROR,
+    });
+
     const analyzeMissingKey = await analyzeBotPost(
       jsonRequest<Parameters<typeof analyzeBotPost>[0]>({ botName: 'HelperBot' })
     );
@@ -483,6 +727,229 @@ async function runTestBotSuccessAssertion() {
   }
 }
 
+async function runChunkSessionBotBindingAssertion() {
+  const originalFetch = globalThis.fetch;
+  let fetchCount = 0;
+
+  globalThis.fetch = (async () => {
+    fetchCount += 1;
+    return new Response(sampleHtml, { status: 200 });
+  }) as typeof fetch;
+
+  try {
+    const sessionId = 'bot-binding-session';
+    const initialResponse = await chunkedAnalyzeBotPost(
+      jsonRequest<Parameters<typeof chunkedAnalyzeBotPost>[0]>({
+        botName: 'HelperBot',
+        apiKey: 'test-key',
+        chunk: 0,
+        sessionId,
+      })
+    );
+
+    assert.equal(initialResponse.status, 200);
+    await initialResponse.text();
+    assert.equal(fetchCount, 1);
+
+    const continuationResponse = await chunkedAnalyzeBotPost(
+      jsonRequest<Parameters<typeof chunkedAnalyzeBotPost>[0]>({
+        botName: 'HelperBot',
+        apiKey: 'test-key',
+        chunk: 1,
+        sessionId,
+      })
+    );
+
+    assert.equal(continuationResponse.status, 200);
+    await continuationResponse.text();
+    assert.equal(fetchCount, 1);
+
+    const mismatchedResponse = await chunkedAnalyzeBotPost(
+      jsonRequest<Parameters<typeof chunkedAnalyzeBotPost>[0]>({
+        botName: 'AnotherBot',
+        apiKey: 'test-key',
+        chunk: 0,
+        sessionId,
+      })
+    );
+
+    assert.equal(mismatchedResponse.status, 409);
+    assert.deepEqual(await readJson(mismatchedResponse), {
+      error: SESSION_BOT_MISMATCH_ERROR,
+    });
+    assert.equal(fetchCount, 1);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+}
+
+async function runChunkSessionConcurrencyAssertion() {
+  const originalFetch = globalThis.fetch;
+  let resolveFirstFetch: ((response: Response) => void) | undefined;
+  let markFetchStarted: (() => void) | undefined;
+  const fetchStarted = new Promise<void>(resolve => {
+    markFetchStarted = resolve;
+  });
+
+  globalThis.fetch = (() => new Promise<Response>(resolve => {
+    resolveFirstFetch = resolve;
+    markFetchStarted?.();
+  })) as typeof fetch;
+
+  try {
+    const sessionId = 'concurrent-chunk-session';
+    const firstResponse = await chunkedAnalyzeBotPost(
+      jsonRequest<Parameters<typeof chunkedAnalyzeBotPost>[0]>({
+        botName: 'HelperBot',
+        apiKey: 'test-key',
+        chunk: 0,
+        sessionId,
+      })
+    );
+
+    assert.equal(firstResponse.status, 200);
+    await fetchStarted;
+
+    const overlappingResponse = await chunkedAnalyzeBotPost(
+      jsonRequest<Parameters<typeof chunkedAnalyzeBotPost>[0]>({
+        botName: 'HelperBot',
+        apiKey: 'test-key',
+        chunk: 1,
+        sessionId,
+      })
+    );
+
+    assert.equal(overlappingResponse.status, 409);
+    assert.deepEqual(await readJson(overlappingResponse), {
+      error: SESSION_IN_PROGRESS_ERROR,
+    });
+
+    assert.ok(resolveFirstFetch);
+    resolveFirstFetch(new Response(sampleHtml, { status: 200 }));
+    await firstResponse.text();
+
+    const sequentialResponse = await chunkedAnalyzeBotPost(
+      jsonRequest<Parameters<typeof chunkedAnalyzeBotPost>[0]>({
+        botName: 'HelperBot',
+        apiKey: 'test-key',
+        chunk: 1,
+        sessionId,
+      })
+    );
+
+    assert.equal(sequentialResponse.status, 200);
+    await sequentialResponse.text();
+  } finally {
+    globalThis.fetch = originalFetch;
+    resolveFirstFetch?.(new Response(sampleHtml, { status: 200 }));
+  }
+}
+
+async function runChunkSessionSequenceAssertion() {
+  const originalFetch = globalThis.fetch;
+  let fetchCount = 0;
+
+  globalThis.fetch = (async () => {
+    fetchCount += 1;
+    return new Response(sampleHtml, { status: 200 });
+  }) as typeof fetch;
+
+  try {
+    const sessionId = 'ordered-chunk-session';
+    const invalidStart = await chunkedAnalyzeBotPost(
+      jsonRequest<Parameters<typeof chunkedAnalyzeBotPost>[0]>({
+        botName: 'HelperBot', apiKey: 'test-key', chunk: 1, sessionId,
+      })
+    );
+    assert.equal(invalidStart.status, 409);
+    assert.deepEqual(await readJson(invalidStart), { error: SESSION_CHUNK_SEQUENCE_ERROR });
+    assert.equal(fetchCount, 0);
+
+    const firstChunk = await chunkedAnalyzeBotPost(
+      jsonRequest<Parameters<typeof chunkedAnalyzeBotPost>[0]>({
+        botName: 'HelperBot', apiKey: 'test-key', chunk: 0, sessionId,
+      })
+    );
+    assert.equal(firstChunk.status, 200);
+    await firstChunk.text();
+    assert.equal(fetchCount, 1);
+
+    for (const chunk of [0, 2]) {
+      const outOfOrder = await chunkedAnalyzeBotPost(
+        jsonRequest<Parameters<typeof chunkedAnalyzeBotPost>[0]>({
+          botName: 'HelperBot', apiKey: 'test-key', chunk, sessionId,
+        })
+      );
+      assert.equal(outOfOrder.status, 409);
+      assert.deepEqual(await readJson(outOfOrder), { error: SESSION_CHUNK_SEQUENCE_ERROR });
+      assert.equal(fetchCount, 1);
+    }
+
+    const secondChunk = await chunkedAnalyzeBotPost(
+      jsonRequest<Parameters<typeof chunkedAnalyzeBotPost>[0]>({
+        botName: 'HelperBot', apiKey: 'test-key', chunk: 1, sessionId,
+      })
+    );
+    assert.equal(secondChunk.status, 200);
+    await secondChunk.text();
+    assert.equal(fetchCount, 1);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+}
+
+async function runFailedChunkSessionCleanupAssertion() {
+  const originalFetch = globalThis.fetch;
+  const originalTextEncoder = globalThis.TextEncoder;
+  let fetchCount = 0;
+
+  class FailingTextEncoder {
+    encode(): Uint8Array {
+      throw new Error('forced terminal stream failure');
+    }
+  }
+
+  try {
+    globalThis.TextEncoder = FailingTextEncoder as unknown as typeof TextEncoder;
+    const sessionId = 'failed-stream-reuse-session';
+    const failedResponse = await chunkedAnalyzeBotPost(
+      jsonRequest<Parameters<typeof chunkedAnalyzeBotPost>[0]>({
+        botName: 'HelperBot',
+        apiKey: 'test-key',
+        chunk: 0,
+        sessionId,
+      })
+    );
+
+    assert.equal(failedResponse.status, 200);
+    assert.equal(await failedResponse.text(), '');
+
+    globalThis.TextEncoder = originalTextEncoder;
+    globalThis.fetch = (async () => {
+      fetchCount += 1;
+      return Response.json({
+        choices: [{ message: { content: 'Please try a supported format instead.' } }],
+      });
+    }) as typeof fetch;
+
+    const reusedResponse = await chunkedAnalyzeBotPost(
+      jsonRequest<Parameters<typeof chunkedAnalyzeBotPost>[0]>({
+        botName: 'AnotherBot',
+        apiKey: 'test-key',
+        chunk: 0,
+        sessionId,
+      })
+    );
+
+    assert.equal(reusedResponse.status, 200);
+    assert.match(await reusedResponse.text(), /"type":"chunk_complete"/);
+    assert.equal(fetchCount, 1);
+  } finally {
+    globalThis.fetch = originalFetch;
+    globalThis.TextEncoder = originalTextEncoder;
+  }
+}
+
 async function runTestBotTransportFailureAssertions() {
   const originalFetch = globalThis.fetch;
   const originalConsoleError = console.error;
@@ -538,7 +1005,12 @@ async function runTestBotTransportFailureAssertions() {
 }
 
 async function main() {
+  await runRequestBodyAssertions();
   await runRouteAssertions();
+  await runChunkSessionBotBindingAssertion();
+  await runChunkSessionConcurrencyAssertion();
+  await runChunkSessionSequenceAssertion();
+  await runFailedChunkSessionCleanupAssertion();
   await runTestBotSuccessAssertion();
   await runTestBotTransportFailureAssertions();
 }

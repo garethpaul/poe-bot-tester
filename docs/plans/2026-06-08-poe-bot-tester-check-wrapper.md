@@ -1,5 +1,7 @@
 # Poe Bot Tester Check Wrapper
 
+status: completed
+
 ## Status
 
 Completed

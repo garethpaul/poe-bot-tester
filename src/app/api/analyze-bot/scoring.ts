@@ -16,6 +16,17 @@ export interface BotMetadata {
 
 export const POE_METADATA_TIMEOUT_MS = 5000;
 
+export function calculateOverallScore(results: readonly unknown[]): number {
+  if (results.length === 0) return 0;
+
+  const total = results.reduce<number>((sum, result) => {
+    if (!result || typeof result !== 'object' || !('score' in result)) return sum;
+    const score = result.score;
+    return sum + (typeof score === 'number' && Number.isFinite(score) ? score : 0);
+  }, 0);
+  return Math.round(total / results.length);
+}
+
 function findAttribute(tag: string, attributeName: string): string | null {
   const escapedAttributeName = attributeName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const match = tag.match(

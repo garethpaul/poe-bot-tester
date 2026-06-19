@@ -1,5 +1,7 @@
 # Analyze Bot Helper Regression Tests
 
+status: completed
+
 ## Status
 
 Completed

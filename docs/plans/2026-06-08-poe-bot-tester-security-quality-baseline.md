@@ -1,5 +1,7 @@
 # Poe Bot Tester Security and Quality Baseline
 
+status: completed
+
 ## Status
 
 Completed

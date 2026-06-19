@@ -1,5 +1,7 @@
 ## Poe Bot Tester Vision
 
+Terminal streamed completion cancels the response reader and always releases its lock.
+
 Poe Bot Tester is a Next.js application for evaluating Poe bots across
 branding, functionality, file support, usability, error handling, and response
 performance.
@@ -22,23 +24,34 @@ Priority:
 - Keep API-key entry under the user's control
 - Maintain the `npm run verify` gate for lint, types, tests, build, and audit
 - Keep a scriptable baseline guard for package scripts and local metadata
+- Keep GitHub Actions aligned with the local npm `make check` baseline
 - Make chunked and streaming analysis behavior easy to trace
 - Validate Poe bot names before upstream fetches or model requests
 - Reject blank API keys and prompts before upstream Poe requests
+- Reject malformed and non-object JSON request bodies before route work
+- Preserve the 64 KiB JSON request body limit before parsing or route work
 - Keep description scoring criteria and passing scores aligned
 - Keep blank bot descriptions treated as missing before scoring
 - Keep order-independent Poe metadata parsing covered by deterministic tests
 - Keep deterministic streaming analyzer scoring for simulated checks
 - Reject invalid chunked analysis indexes before streaming progress
 - Reject invalid chunked analysis session IDs before streaming progress
+- Release exact chunk sessions on terminal chunk stream failure before error emission
+- Preserve exact-session ownership during successful final cleanup and never
+  restore a stale acquired session after ownership changes
+- Reject overlapping chunk requests for the same session until the active
+  request releases its exact in-flight lease
+- Enforce an exact chunk sequence so sessions start at chunk 0 and cannot replay
+  or skip score inputs
 - Reject unknown test file types before decoding fixture data
 - Keep Poe transport errors stable and free of runtime exception details
 - Keep one shared five-second abort boundary for Poe metadata fetches across
   every analyzer mode
+- Keep overall score aggregation shared and deterministic across standard,
+  streaming, and chunked analyzers
 
 Next priorities:
 
-- Expand tests from analyzer parsing/name/description helpers into score aggregation
 - Document which checks require live Poe access
 - Add safer handling for API failures
 - Keep sample file fixtures explicit and small
@@ -49,6 +62,8 @@ Contribution rules:
 - Do not store Poe API keys beyond the active request/session.
 - Add regression coverage for scoring or streaming changes.
 - Keep user-facing scores explainable from the raw test results.
+- Keep `.github/workflows/check.yml` in sync with the local npm verification
+  gate.
 
 ## Security And Responsible Use
 

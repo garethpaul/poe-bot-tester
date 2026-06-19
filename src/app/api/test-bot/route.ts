@@ -5,13 +5,13 @@ import {
   normalizePoeBotName,
   normalizeRequiredText,
 } from '../poe-bot-name';
+import {
+  INVALID_JSON_BODY_ERROR,
+  JSON_BODY_TOO_LARGE_ERROR,
+  parseJsonObject,
+} from '../request-body';
 
 export const runtime = 'edge';
-
-interface TestBotRequest {
-  botName: string;
-  prompt: string;
-}
 
 function isPoeTimeoutError(error: unknown): boolean {
   return error instanceof Error &&
@@ -20,7 +20,17 @@ function isPoeTimeoutError(error: unknown): boolean {
 
 export async function POST(request: NextRequest) {
   try {
-    const { botName: rawBotName, prompt: rawPrompt }: TestBotRequest = await request.json();
+    const parsedBody = await parseJsonObject(request);
+    if (!parsedBody.ok) {
+      const oversized = parsedBody.reason === 'too_large';
+      return NextResponse.json(
+        { error: oversized ? JSON_BODY_TOO_LARGE_ERROR : INVALID_JSON_BODY_ERROR },
+        { status: oversized ? 413 : 400 }
+      );
+    }
+    const body = parsedBody.value;
+
+    const { botName: rawBotName, prompt: rawPrompt } = body;
     const prompt = normalizeRequiredText(rawPrompt);
 
     if (!rawBotName || !prompt) {

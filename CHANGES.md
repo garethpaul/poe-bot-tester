@@ -1,7 +1,46 @@
 # Changes
 
+## 2026-06-16
+
+- Enforced an exact chunk sequence so new sessions start at chunk 0 and replayed
+  or skipped chunks cannot duplicate or omit score inputs.
+- Overlapping requests for one chunk session now receive HTTP 409 until the
+  active request releases its exact in-flight lease.
+- Exact-session ownership now governs successful final chunk cleanup, and
+  chunk processing no longer restores stale acquired sessions after ownership
+  changes.
+
+## 2026-06-15
+
+- Terminal streamed completion cancels the response reader and always releases its lock.
+- Terminal chunk stream failures release their exact in-memory sessions before
+  error emission, preventing stale cross-bot ownership conflicts.
+
+## 2026-06-14
+
+- Buffered browser-side SSE data across network chunk boundaries so split JSON
+  progress and completion records are delivered exactly once instead of being
+  discarded as malformed fragments.
+
+## 2026-06-13
+
+- Shared overall score aggregation across all analyzer modes and added focused
+  empty, missing, non-finite, rounding, and range regression coverage.
+
+- Rejected malformed and non-object JSON request bodies with stable HTTP 400
+  responses before validation, stream creation, or Poe requests.
+- Added a 64 KiB JSON request body limit with stable HTTP 413 responses before
+  parsing, validation, stream creation, or Poe requests.
+- Refreshed the transitive `esbuild` lockfile family to 0.28.1 after the
+  moderate-level audit began rejecting 0.28.0 for two published advisories.
+
 ## 2026-06-12
 
+- Upgraded to Next.js 16.2.9 and React 19.2.7, refreshed the compatible
+  Tailwind, ESLint 9, TypeScript 5.9, and type-package toolchain, and retained a
+  zero-vulnerability lockfile.
+- Replaced the legacy FlatCompat bridge with Next 16's native flat ESLint
+  exports and adopted its required React JSX and development route types.
 - Added one shared five-second timeout to Poe bot-page metadata requests across
   non-streaming, streaming, and chunked analyzer modes.
 - Added static route coverage preventing missing abort signals or route-local
@@ -9,9 +48,8 @@
 
 ## 2026-06-10
 
-- Added pinned, read-only hosted Linux validation on Node 20 and Node 24 using
-  lockfile installation and the full Next.js gate.
-
+- Added pinned, credential-free, read-only GitHub Actions validation on Node 20
+  and Node 24 using lockfile installation and the full `make check` gate.
 - Rejected unknown test file types, including inherited object keys, before
   decoding fixture data.
 - Replaced raw `/api/test-bot` transport exceptions with stable `502` and `504`

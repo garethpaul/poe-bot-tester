@@ -2,34 +2,12 @@
 
 import { useState } from 'react';
 
-interface TestResult {
-  name: string;
-  status: 'passed' | 'failed' | 'pending' | 'running';
-  details?: string;
-  score?: number;
-  error?: string;
-  debugInfo?: {
-    request?: string;
-    response?: string;
-    timestamp?: string;
-    duration?: number;
-    expectedBehavior?: string;
-    actualBehavior?: string;
-  };
-}
-
-interface BotScorecard {
-  botName: string;
-  overallScore: number;
-  categories: {
-    branding: TestResult[];
-    functionality: TestResult[];
-    usability: TestResult[];
-    fileSupport: TestResult[];
-    errorHandling: TestResult[];
-  };
-  responseTime?: number;
-}
+import {
+  createChunkedAnalysisRunner,
+  type BotScorecard,
+  type ProgressUpdate,
+  type TestResult,
+} from './chunked-analysis-runner';
 
 interface ProgressState {
   message: string;
@@ -183,106 +161,24 @@ export default function Home() {
       }
     });
     
+    const runChunkedAnalysis = createChunkedAnalysisRunner({
+      botName,
+      apiKey,
+      onProgressUpdate: handleProgressUpdate,
+      setIsRunning,
+      setRetryMessage: message => {
+        setProgressState(prev => prev ? {
+          ...prev,
+          message,
+        } : null);
+      },
+      onError: message => alert(message),
+    });
+
     await runChunkedAnalysis(0, null);
   };
 
-  const runChunkedAnalysis = async (chunkIndex: number, sessionId: string | null, retryCount = 0): Promise<void> => {
-    const MAX_RETRIES = 3;
-    
-    try {
-      const response = await fetch('/api/analyze-bot-chunked', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          botName,
-          apiKey,
-          chunk: chunkIndex,
-          sessionId
-        })
-      });
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const reader = response.body?.getReader();
-      const decoder = new TextDecoder();
-
-      if (!reader) {
-        throw new Error('No response body');
-      }
-
-      let currentSessionId = sessionId;
-      let nextChunk = null;
-
-      while (true) {
-        const { value, done } = await reader.read();
-        if (done) break;
-
-        const chunk = decoder.decode(value);
-        const lines = chunk.split('\n');
-
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            try {
-              const data = JSON.parse(line.slice(6));
-              
-              // Update session ID if provided
-              if (data.sessionId && !currentSessionId) {
-                currentSessionId = data.sessionId;
-              }
-              
-              // Check for chunk completion
-              if (data.type === 'chunk_complete' && data.nextChunk !== undefined) {
-                nextChunk = data.nextChunk;
-              }
-              
-              handleProgressUpdate(data);
-              
-              // If analysis is complete, stop here
-              if (data.type === 'complete') {
-                setIsRunning(false);
-                return;
-              }
-              
-            } catch (e) {
-              console.log('Failed to parse SSE data:', e);
-            }
-          }
-        }
-      }
-
-      // If we have a next chunk, continue the analysis
-      if (nextChunk !== null) {
-        setTimeout(() => {
-          runChunkedAnalysis(nextChunk, currentSessionId);
-        }, 1000); // Small delay before next chunk
-      } else {
-        setIsRunning(false);
-      }
-
-    } catch (error) {
-      console.log(`Chunk ${chunkIndex} failed (attempt ${retryCount + 1}):`, error);
-      
-      if (retryCount < MAX_RETRIES) {
-        // Retry with exponential backoff
-        const delay = Math.pow(2, retryCount) * 1000;
-        setProgressState(prev => prev ? {
-          ...prev,
-          message: `Connection lost, retrying in ${delay/1000}s... (attempt ${retryCount + 1}/${MAX_RETRIES})`
-        } : null);
-        
-        setTimeout(() => {
-          runChunkedAnalysis(chunkIndex, sessionId, retryCount + 1);
-        }, delay);
-      } else {
-        alert(`Analysis failed after ${MAX_RETRIES} retries: ${error instanceof Error ? error.message : 'Unknown error'}`);
-        setIsRunning(false);
-      }
-    }
-  };
-
-  const handleProgressUpdate = (data: { type: string; category?: string; testName?: string; message?: string; result?: TestResult; progress?: number; currentTest?: number; totalTests?: number }) => {
+  const handleProgressUpdate = (data: ProgressUpdate) => {
     switch (data.type) {
       case 'progress':
         setProgressState(prev => prev ? {

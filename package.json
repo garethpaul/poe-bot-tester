@@ -11,26 +11,25 @@
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "test": "tsx scripts/test-analyze-bot.ts",
+    "test": "tsx scripts/test-analyze-bot.ts && tsx scripts/test-sse-data-decoder.ts && tsx scripts/test-sse-stream-consumer.ts && tsx scripts/test-chunked-analysis-runner.ts",
     "audit": "npm audit --audit-level=moderate",
     "verify": "npm run lint && npm run typecheck && npm test && npm run build && npm run audit"
   },
   "dependencies": {
-    "next": "15.5.19",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "next": "16.2.9",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7"
   },
   "devDependencies": {
-    "@eslint/eslintrc": "^3",
-    "@tailwindcss/postcss": "^4",
-    "@types/node": "^20",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
-    "eslint": "^9",
-    "eslint-config-next": "15.5.19",
-    "tailwindcss": "^4",
+    "@tailwindcss/postcss": "^4.3.0",
+    "@types/node": "^20.19.43",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "eslint": "^9.39.4",
+    "eslint-config-next": "16.2.9",
+    "tailwindcss": "^4.3.0",
     "tsx": "4.22.4",
-    "typescript": "^5"
+    "typescript": "^5.9.3"
   },
   "overrides": {
     "postcss": "8.5.15"

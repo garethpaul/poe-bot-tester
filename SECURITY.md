@@ -24,6 +24,8 @@ Helpful reports include:
 
 ## Project Security Posture
 
+Terminal streamed completion cancels the response reader and always releases its lock.
+
 - This repository appears to be a JavaScript web application or frontend sample. The active security scope is the code and documentation on the default branch.
 - Review found authentication, token, or session-related code paths; changes in those areas should receive security-focused review before merge.
 - Review found external API integrations or credential-adjacent configuration; changes in those areas should receive security-focused review before merge.
@@ -31,6 +33,9 @@ Helpful reports include:
 - Review found file, document, data, or media parsing flows; changes in those areas should receive security-focused review before merge.
 - Review found database, model, query, or persistence-related code; changes in those areas should receive security-focused review before merge.
 - Dependency manifests detected: package.json, package-lock.json. Dependency updates should preserve lockfiles when present and avoid introducing packages without a clear maintenance reason.
+- Pinned, read-only GitHub Actions runs `make check` after `npm ci` on Node 20
+  and Node 24 without Poe credentials, keeping analyzer, API route, build,
+  audit, and dependency guardrails enforced before merge.
 
 ## Service and API Notes
 
@@ -38,6 +43,10 @@ For web services, APIs, sockets, or scraping workflows, prioritize reports invol
 
 API routes trim required user input and reject blank API keys and prompts before
 constructing Poe API requests or bot-page fetches.
+POST API routes reject malformed and non-object JSON request bodies before
+validation, stream creation, or upstream work.
+A 64 KiB JSON request body limit bounds application parsing for POST routes,
+but does not replace platform transport, concurrency, or rate limits.
 Blank bot descriptions should be treated as missing before description scoring
 so whitespace cannot inflate quality results.
 Order-independent Poe metadata parsing should preserve description and profile
@@ -46,6 +55,14 @@ Chunked analysis rejects invalid chunked analysis indexes before creating
 progress streams.
 Chunked analysis rejects invalid chunked analysis session IDs before creating
 progress streams or touching in-memory session state.
+A terminal chunk stream failure releases its exact in-memory session before
+error emission so stale bot ownership does not persist after termination.
+Exact-session ownership also governs successful final cleanup, and chunk
+processing never writes a stale acquired session back after ownership changes.
+Overlapping requests for one chunk session receive HTTP 409 until the active
+request releases its exact in-flight lease.
+An exact chunk sequence prevents new sessions from starting late and prevents
+replayed or skipped chunks from duplicating or omitting score inputs.
 Test-file fixture routes reject unknown test file types, including inherited
 object keys, before decoding fixture data.
 Poe transport errors and timeouts return stable gateway responses without
@@ -54,6 +71,8 @@ Poe bot-page metadata requests in every analyzer mode use the same five-second
 abort boundary to limit resource use when an upstream page stalls.
 Keep deterministic streaming analyzer scoring so repeated runs do not produce
 random pass/fail results for checks that still require live Poe verification.
+Keep overall score aggregation finite for empty or malformed score collections;
+missing and non-finite scores contribute zero rather than propagating `NaN`.
 
 ## Dependency and Supply Chain Security
 

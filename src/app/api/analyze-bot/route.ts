@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import {
   analyzeBotName,
   analyzeDescription,
+  calculateOverallScore,
   parseBotPage,
   POE_METADATA_TIMEOUT_MS,
   type BotMetadata,
@@ -13,13 +14,13 @@ import {
   normalizePoeBotName,
   normalizeRequiredText,
 } from '../poe-bot-name';
+import {
+  INVALID_JSON_BODY_ERROR,
+  JSON_BODY_TOO_LARGE_ERROR,
+  parseJsonObject,
+} from '../request-body';
 
 export const runtime = 'edge';
-
-interface AnalyzeBotRequest {
-  botName: string;
-  apiKey: string;
-}
 
 interface BotScorecard {
   botName: string;
@@ -522,7 +523,17 @@ async function testErrorHandling(botName: string, apiKey: string): Promise<TestR
 
 export async function POST(request: NextRequest) {
   try {
-    const { botName: rawBotName, apiKey: rawApiKey }: AnalyzeBotRequest = await request.json();
+    const parsedBody = await parseJsonObject(request);
+    if (!parsedBody.ok) {
+      const oversized = parsedBody.reason === 'too_large';
+      return NextResponse.json(
+        { error: oversized ? JSON_BODY_TOO_LARGE_ERROR : INVALID_JSON_BODY_ERROR },
+        { status: oversized ? 413 : 400 }
+      );
+    }
+    const body = parsedBody.value;
+
+    const { botName: rawBotName, apiKey: rawApiKey } = body;
     const apiKey = normalizeRequiredText(rawApiKey);
 
     if (!rawBotName || !apiKey) {
@@ -564,9 +575,7 @@ export async function POST(request: NextRequest) {
       ...errorHandlingResults
     ];
 
-    const overallScore = Math.round(
-      allResults.reduce((sum, result) => sum + (result.score || 0), 0) / allResults.length
-    );
+    const overallScore = calculateOverallScore(allResults);
 
     const responseTime = conversationResults.find(r => r.name.includes('Response time'))?.score;
 

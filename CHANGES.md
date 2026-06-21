@@ -2,8 +2,8 @@
 
 ## 2026-06-21
 
-- Hardened all eight public Make gates against `MAKEFILE_LIST`, `REPO_ROOT`,
-  and `NPM` redirection, with dependency-free hostile invocation coverage.
+- Hardened all eight public Make gates against file-list, root, executable, and
+  shell redirection, with dependency-free executable hostile coverage.
 
 ## 2026-06-16
 

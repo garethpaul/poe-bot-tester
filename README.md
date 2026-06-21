@@ -154,9 +154,9 @@ When the required SDK or runtime is unavailable, use static checks and source re
 
 ## Maintenance Notes
 
-- Make gates reject caller-controlled `MAKEFILE_LIST`, `REPO_ROOT`, and `NPM`
-  values and are regression-tested from paths containing shell-sensitive
-  characters.
+- Make gates reject caller-controlled file-list, root, executable, and shell
+  authority and are regression-tested from paths containing spaces, quotes,
+  brackets, apostrophes, and backticks.
 - See `SECURITY.md` for vulnerability reporting and safe research guidance.
 - See `VISION.md` for project direction and contribution guardrails.
 - See `CHANGES.md` for maintenance history.

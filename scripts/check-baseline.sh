@@ -441,21 +441,28 @@ for target in "lint:" "typecheck:" "test:" "build:" "audit:" "root-test:" "verif
 done
 
 for make_contract in \
+  'override SHELL := /bin/sh' \
+  'override .SHELLFLAGS := -c' \
+  '$(error MAKEFILES must be empty; repository verification requires this Makefile to be loaded alone)' \
+  'override MAKEFILES :=' \
   'ifneq ($(origin MAKEFILE_LIST),file)' \
   '$(error MAKEFILE_LIST must not be overridden)' \
   'override REPO_ROOT := $(shell path=' \
+  'export REPO_ROOT' \
+  '$(error repository Makefile path could not be resolved)' \
   '/usr/bin/dirname' \
   '/bin/pwd -P' \
   'override NPM := npm' \
+  'override NODE := node' \
   'verify: root-test' \
-  'cd "$(REPO_ROOT)" && node scripts/test-makefile-root.mjs' \
-  'cd "$(REPO_ROOT)" && $(NPM) run lint' \
-  'cd "$(REPO_ROOT)" && $(NPM) run typecheck' \
-  'cd "$(REPO_ROOT)" && $(NPM) test' \
-  'cd "$(REPO_ROOT)" && $(NPM) run build' \
-  'cd "$(REPO_ROOT)" && $(NPM) run audit' \
-  'cd "$(REPO_ROOT)" && $(NPM) run verify' \
-  'cd "$(REPO_ROOT)" && scripts/check-baseline.sh'; do
+  'cd "$$REPO_ROOT" && $(NODE) scripts/test-makefile-root.mjs' \
+  'cd "$$REPO_ROOT" && $(NPM) run lint' \
+  'cd "$$REPO_ROOT" && $(NPM) run typecheck' \
+  'cd "$$REPO_ROOT" && $(NPM) test' \
+  'cd "$$REPO_ROOT" && $(NPM) run build' \
+  'cd "$$REPO_ROOT" && $(NPM) run audit' \
+  'cd "$$REPO_ROOT" && $(NPM) run verify' \
+  'cd "$$REPO_ROOT" && scripts/check-baseline.sh'; do
   if ! grep -Fq "$make_contract" "$MAKEFILE"; then
     printf '%s\n' "Makefile must remain caller-directory independent: $make_contract" >&2
     exit 1
@@ -468,10 +475,15 @@ for root_test_contract in \
   'environment REPO_ROOT override' \
   'command NPM override' \
   'environment NPM override' \
+  'command NODE override' \
+  'environment NODE override' \
+  'command SHELL override' \
+  'environment SHELL override' \
   'command MAKEFILE_LIST override' \
   'environment MAKEFILE_LIST override' \
-  '40 target/override cases' \
-  '2 MAKEFILE_LIST rejection cases'; do
+  '88 executed target/authority cases' \
+  '1 MAKEFILES rejection' \
+  '1 multi-Makefile rejection'; do
   if ! grep -Fq "$root_test_contract" "$ROOT_DIR/scripts/test-makefile-root.mjs"; then
     printf '%s\n' "Makefile root test must preserve: $root_test_contract" >&2
     exit 1

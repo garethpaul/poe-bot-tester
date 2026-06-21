@@ -1,5 +1,10 @@
 # Changes
 
+## 2026-06-21
+
+- Hardened all eight public Make gates against file-list, root, executable, and
+  shell redirection, with dependency-free executable hostile coverage.
+
 ## 2026-06-16
 
 - Enforced an exact chunk sequence so new sessions start at chunk 0 and replayed

@@ -1,5 +1,10 @@
 # Changes
 
+## 2026-06-21
+
+- Hardened all eight public Make gates against `MAKEFILE_LIST`, `REPO_ROOT`,
+  and `NPM` redirection, with dependency-free hostile invocation coverage.
+
 ## 2026-06-16
 
 - Enforced an exact chunk sequence so new sessions start at chunk 0 and replayed

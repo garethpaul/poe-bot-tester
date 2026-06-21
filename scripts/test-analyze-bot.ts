@@ -301,6 +301,12 @@ const testFileTypePlan = readProjectFile('docs/plans/2026-06-10-poe-bot-tester-t
 const metadataTimeoutPlan = readProjectFile('docs/plans/2026-06-12-poe-metadata-fetch-timeout.md');
 
 assert.match(makefile, /^check: verify$/m);
+assert.match(makefile, /^ifneq \(\$\(origin MAKEFILE_LIST\),file\)$/m);
+assert.match(makefile, /^\$\(error MAKEFILE_LIST must not be overridden\)$/m);
+assert.match(makefile, /^override REPO_ROOT := \$\(shell path=/m);
+assert.match(makefile, /^override NPM := npm$/m);
+assert.match(makefile, /^verify: root-test$/m);
+assert.match(makefile, /node scripts\/test-makefile-root\.mjs/);
 assert.match(makefile, /\$\(NPM\) run verify/);
 assert.match(packageManifest, /"pretypecheck": "node -e/);
 assert.match(packageManifest, /"prebuild": "node -e/);

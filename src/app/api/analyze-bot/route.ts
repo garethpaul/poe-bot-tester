@@ -264,9 +264,20 @@ function analyzeVerification(metadata: BotMetadata): { score: number; details: s
   };
 }
 
-async function getTestFile(fileType: string): Promise<{ buffer: Buffer; mime: string; name: string } | null> {
+export function buildTestFileUrl(requestUrl: string, fileType: string): string {
+  const testFileUrl = new URL('/api/test-files', requestUrl);
+  if (testFileUrl.protocol !== 'http:' && testFileUrl.protocol !== 'https:') {
+    throw new TypeError('Test file origin must use HTTP or HTTPS');
+  }
+  testFileUrl.username = '';
+  testFileUrl.password = '';
+  testFileUrl.searchParams.set('type', fileType);
+  return testFileUrl.toString();
+}
+
+async function getTestFile(requestUrl: string, fileType: string): Promise<{ buffer: Buffer; mime: string; name: string } | null> {
   try {
-    const response = await fetch(`http://localhost:3001/api/test-files?type=${fileType}`);
+    const response = await fetch(buildTestFileUrl(requestUrl, fileType));
     if (response.ok) {
       const buffer = Buffer.from(await response.arrayBuffer());
       const contentType = response.headers.get('content-type') || '';
@@ -282,7 +293,7 @@ async function getTestFile(fileType: string): Promise<{ buffer: Buffer; mime: st
   return null;
 }
 
-async function testFileSupport(botName: string, apiKey: string): Promise<TestResult[]> {
+async function testFileSupport(requestUrl: string, botName: string, apiKey: string): Promise<TestResult[]> {
   const results: TestResult[] = [];
   
   for (const fileType of fileTypes) {
@@ -291,7 +302,7 @@ async function testFileSupport(botName: string, apiKey: string): Promise<TestRes
       
       if (fileType.hasTestFile) {
         // Test with actual file
-        const testFile = await getTestFile(fileType.ext);
+        const testFile = await getTestFile(requestUrl, fileType.ext);
         
         if (testFile) {
           testResult = await testFileWithBot(botName, apiKey, fileType, testFile);
@@ -562,7 +573,7 @@ export async function POST(request: NextRequest) {
     ] = await Promise.all([
       Promise.resolve(analyzeBranding(metadata)),
       Promise.resolve(analyzeDescription(metadata)),
-      testFileSupport(botName, apiKey),
+      testFileSupport(request.url, botName, apiKey),
       testConversationFlow(botName, apiKey),
       testErrorHandling(botName, apiKey)
     ]);

@@ -10,6 +10,8 @@ DOCS_PLANS="$ROOT_DIR/docs/plans"
 CI_WORKFLOW="$ROOT_DIR/.github/workflows/check.yml"
 CHUNKED_ROUTE="$ROOT_DIR/src/app/api/analyze-bot-chunked/route.ts"
 ANALYZE_BOT_TEST="$ROOT_DIR/scripts/test-analyze-bot.ts"
+ANALYZE_BOT_ROUTE="$ROOT_DIR/src/app/api/analyze-bot/route.ts"
+SAME_ORIGIN_FIXTURE_PLAN="$DOCS_PLANS/2026-06-26-same-origin-test-file-fixtures.md"
 SESSION_BOT_BINDING_PLAN="$DOCS_PLANS/2026-06-15-chunk-session-bot-binding.md"
 FAILED_SESSION_CLEANUP_PLAN="$DOCS_PLANS/2026-06-15-failed-stream-session-cleanup.md"
 SESSION_OWNERSHIP_CLEANUP_PLAN="$DOCS_PLANS/2026-06-16-session-ownership-cleanup.md"
@@ -67,9 +69,61 @@ for path in \
   "docs/plans/2026-06-16-chunk-session-concurrency-guard.md" \
   "docs/plans/2026-06-17-chunk-session-sequence.md" \
   "docs/plans/2026-06-21-safe-make-root.md" \
+  "docs/plans/2026-06-26-same-origin-test-file-fixtures.md" \
   "scripts/check-baseline.sh" \
   "scripts/test-makefile-root.mjs"; do
   require_file "$path"
+done
+
+if grep -Fq 'localhost:3001/api/test-files' "$ANALYZE_BOT_ROUTE"; then
+  printf '%s\n' 'Full analysis must not depend on the development-only fixture port.' >&2
+  exit 1
+fi
+
+for fixture_contract in \
+  'export function buildTestFileUrl' \
+  "new URL('/api/test-files', requestUrl)" \
+  "testFileUrl.protocol !== 'http:'" \
+  "testFileUrl.protocol !== 'https:'" \
+  "testFileUrl.username = '';" \
+  "testFileUrl.password = '';" \
+  'testFileSupport(request.url, botName, apiKey)'; do
+  if ! grep -Fq "$fixture_contract" "$ANALYZE_BOT_ROUTE"; then
+    printf '%s\n' "Same-origin fixture lookup must retain: $fixture_contract" >&2
+    exit 1
+  fi
+done
+
+for fixture_test in \
+  "buildTestFileUrl('https://user:secret@tester.example/api/analyze-bot?debug=true', 'png')" \
+  "'https://tester.example/api/test-files?type=png'" \
+  "'http://127.0.0.1:4173/api/test-files?type=pdf'" \
+  "buildTestFileUrl('file:///tmp/analyze-bot', 'gif')"; do
+  if ! grep -Fq "$fixture_test" "$ANALYZE_BOT_TEST"; then
+    printf '%s\n' "Same-origin fixture tests must retain: $fixture_test" >&2
+    exit 1
+  fi
+done
+
+for document in "$README" "$ROOT_DIR/SECURITY.md" "$ROOT_DIR/VISION.md" "$ROOT_DIR/CHANGES.md"; do
+  if ! grep -Fqi 'same origin' "$document"; then
+    printf '%s\n' "$document must document same-origin test-file fixtures." >&2
+    exit 1
+  fi
+done
+
+for evidence in \
+  'status: completed' \
+  'localhost:3001' \
+  'credential-free same-origin URL' \
+  'Node 24' \
+  'make check' \
+  'hostile mutations' \
+  'git diff --check'; do
+  if ! grep -Fq "$evidence" "$SAME_ORIGIN_FIXTURE_PLAN"; then
+    printf '%s\n' "Same-origin fixture plan must preserve completed evidence: $evidence" >&2
+    exit 1
+  fi
 done
 
 for cleanup_contract in \

@@ -58,6 +58,7 @@
 - Chunked analysis rejects invalid chunked analysis indexes before creating progress streams.
 - Chunked analysis rejects invalid chunked analysis session IDs before creating progress streams.
 - Terminal streamed completion cancels the response reader and always releases its lock.
+- Full analysis loads bundled test-file fixtures from the incoming request's same origin; do not restore a fixed development host or port.
 
 ## Agent workflow
 

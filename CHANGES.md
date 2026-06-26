@@ -1,5 +1,30 @@
 # Changes
 
+## 2026-06-26 12:05 PDT - P1 - Restore deployed file-support analysis
+
+- **Priority:** P1 correctness; the full analyzer always requested bundled
+  fixtures from `localhost:3001`, so deployed runs reported supported fixture
+  types as unavailable.
+- **Summary:** derive the fixed `/api/test-files` path from the incoming
+  request's same origin, remove inherited URL credentials, and preserve local
+  ports for development and preview environments.
+- **Files:** `src/app/api/analyze-bot/route.ts`,
+  `scripts/test-analyze-bot.ts`, `scripts/check-baseline.sh`, `AGENTS.md`,
+  `README.md`, `SECURITY.md`, `VISION.md`, and
+  `docs/plans/2026-06-26-same-origin-test-file-fixtures.md`.
+- **Tests:** focused Node 24 regression passed after failing because the URL
+  builder did not exist; Node 20 and Node 24 `make check` passed lint,
+  typecheck, all helper suites, production build, zero-vulnerability audit,
+  root-hostility tests, and the baseline contract. The absolute Makefile gate
+  also passed from `/tmp`.
+- **Findings:** no live Poe credential or external bot request is required to
+  prove URL construction.
+- **Blockers:** Codex review may be unavailable because the local reviewer has
+  repeatedly returned HTTP 401; if so, skip it once as authorized.
+- **Next action:** open a PR after two hostile mutations rejected the fixed
+  development port and retained URL credentials, then merge only the exact
+  hosted-green head.
+
 ## 2026-06-21
 
 - Hardened all eight public Make gates against file-list, root, executable, and

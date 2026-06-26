@@ -26,6 +26,11 @@ Helpful reports include:
 
 Terminal streamed completion cancels the response reader and always releases its lock.
 
+Full analysis fetches bundled test-file fixtures only from the incoming
+request's same origin. The internal URL builder fixes the path to
+`/api/test-files`, removes inherited URL credentials, and does not depend on a
+development-only localhost port.
+
 - This repository appears to be a JavaScript web application or frontend sample. The active security scope is the code and documentation on the default branch.
 - Review found authentication, token, or session-related code paths; changes in those areas should receive security-focused review before merge.
 - Review found external API integrations or credential-adjacent configuration; changes in those areas should receive security-focused review before merge.

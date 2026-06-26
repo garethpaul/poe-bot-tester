@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
-import { POST as analyzeBotPost } from '../src/app/api/analyze-bot/route';
+import {
+  buildTestFileUrl,
+  POST as analyzeBotPost,
+} from '../src/app/api/analyze-bot/route';
 import {
   POST as chunkedAnalyzeBotPost,
   SESSION_BOT_MISMATCH_ERROR,
@@ -459,6 +462,19 @@ assert.match(testFileTypePlan, /status: completed/);
 assert.match(testFileTypePlan, /isTestFileType/);
 assert.match(testFileTypePlan, /__proto__/);
 assert.match(testFileTypePlan, /npm test/);
+
+assert.equal(
+  buildTestFileUrl('https://user:secret@tester.example/api/analyze-bot?debug=true', 'png'),
+  'https://tester.example/api/test-files?type=png',
+);
+assert.equal(
+  buildTestFileUrl('http://127.0.0.1:4173/api/analyze-bot', 'pdf'),
+  'http://127.0.0.1:4173/api/test-files?type=pdf',
+);
+assert.throws(
+  () => buildTestFileUrl('file:///tmp/analyze-bot', 'gif'),
+  /must use HTTP or HTTPS/,
+);
 
 async function runRouteAssertions() {
   const originalFetch = globalThis.fetch;

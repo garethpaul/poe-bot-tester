@@ -413,8 +413,29 @@ for framework_contract in \
   fi
 done
 
-if ! node -e 'const lock = require(process.argv[1]); process.exit(lock.packages?.["node_modules/esbuild"]?.version === "0.28.1" ? 0 : 1)' "$ROOT_DIR/package-lock.json"; then
-  printf '%s\n' "package-lock.json must preserve the reviewed esbuild 0.28.1 security fix." >&2
+# Assert the security fix is not regressed, as a floor rather than an equality.
+# Requiring esbuild === "0.28.1" made the contract named for a security fix block
+# the next one: any upgrade failed it. A floor keeps the fix while leaving
+# upgrades open.
+if ! node -e '
+const lock = require(process.argv[1]);
+const minimum = process.argv[2];
+const actual = lock.packages?.["node_modules/esbuild"]?.version;
+if (!actual) {
+  process.exit(1);
+}
+const parse = (value) => value.split("-")[0].split(".").map(Number);
+const [actualParts, minimumParts] = [parse(actual), parse(minimum)];
+for (let index = 0; index < 3; index += 1) {
+  const left = actualParts[index] ?? 0;
+  const right = minimumParts[index] ?? 0;
+  if (left !== right) {
+    process.exit(left > right ? 0 : 1);
+  }
+}
+process.exit(0);
+' "$ROOT_DIR/package-lock.json" "0.28.1"; then
+  printf '%s\n' "package-lock.json must keep esbuild at or above the reviewed 0.28.1 security fix." >&2
   exit 1
 fi
 
@@ -453,7 +474,6 @@ for workflow_value in \
   "actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10" \
   "persist-credentials: false" \
   "actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e" \
-  "node-version: [20, 24]" \
   "POE_API_KEY: \"\"" \
   "run: npm ci" \
   "run: make check"; do
@@ -462,6 +482,40 @@ for workflow_value in \
     exit 1
   fi
 done
+
+# Assert a supported-version floor rather than an exact matrix. Pinning the exact
+# literal "node-version: [20, 24]" blocked both halves of routine maintenance: it
+# forbade dropping Node 20 after it reached EOL on 2026-04-30, and forbade adding
+# any newer major. Raising this floor is the intended action when a major reaches
+# end of life; see https://nodejs.org/en/about/previous-releases.
+MINIMUM_SUPPORTED_NODE_MAJOR=22
+
+node_matrix=$(sed -n 's/^[[:space:]]*node-version:[[:space:]]*\[\(.*\)\][[:space:]]*$/\1/p' "$CI_WORKFLOW")
+if [ -z "$node_matrix" ]; then
+  printf '%s\n' "GitHub Actions workflow must declare a node-version matrix." >&2
+  exit 1
+fi
+
+node_matrix_count=0
+for node_major in $(printf '%s' "$node_matrix" | tr ',' ' '); do
+  node_major=$(printf '%s' "$node_major" | tr -d ' "'"'"'')
+  case $node_major in
+    ''|*[!0-9]*)
+      printf '%s\n' "node-version matrix entries must be bare major versions: got '$node_major'" >&2
+      exit 1
+      ;;
+  esac
+  if [ "$node_major" -lt "$MINIMUM_SUPPORTED_NODE_MAJOR" ]; then
+    printf '%s\n' "node-version matrix must not test Node $node_major: it is past end of life. Minimum supported major is $MINIMUM_SUPPORTED_NODE_MAJOR." >&2
+    exit 1
+  fi
+  node_matrix_count=$((node_matrix_count + 1))
+done
+
+if [ "$node_matrix_count" -lt 2 ]; then
+  printf '%s\n' "node-version matrix must cover at least two supported majors." >&2
+  exit 1
+fi
 
 if [ "$(grep -Ec '^[[:space:]]*- uses: actions/checkout@' "$CI_WORKFLOW")" -ne 1 ] ||
   [ "$(grep -Ec '^[[:space:]]*- uses: actions/setup-node@' "$CI_WORKFLOW")" -ne 1 ] ||

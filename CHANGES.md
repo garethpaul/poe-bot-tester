@@ -1,5 +1,47 @@
 # Changes
 
+## 2026-07-16 06:25 PDT - P2 - Drop EOL Node 20; assert version floors, not literals
+
+### Summary
+
+CI tested Node 20, which reached end of life on 2026-04-30 and no longer
+receives upstream security releases. The baseline required the exact string
+`node-version: [20, 24]`, so it forbade both halves of the fix: dropping the EOL
+major and adding a newer one. The matrix is now `[22, 24]` (both supported LTS),
+and the contract asserts a supported-version floor instead of a literal.
+
+### Work completed
+
+- `.github/workflows/check.yml` — matrix `[20, 24]` -> `[22, 24]`. Node 22 is
+  supported until 2027-04-30 and Node 24 until 2028-04-30, per
+  https://endoflife.date/api/nodejs.json.
+- `scripts/check-baseline.sh` — replaced the exact-matrix grep with
+  `MINIMUM_SUPPORTED_NODE_MAJOR=22`: parse the matrix, reject any major below the
+  floor, and require at least two majors. Raising the floor is now the intended
+  action when a major reaches EOL.
+- `scripts/check-baseline.sh` — the esbuild assertion required
+  `version === "0.28.1"`, so the contract named for a security fix blocked the
+  next one. It is now a floor: at or above 0.28.1.
+
+### Verification
+
+- `make check` exit 0; `npm test` exit 0; `git diff --check` clean.
+- Node floor mutations: `[20, 24]` -> rejected ("past end of life"), where it was
+  previously *required*; `[22, 24, 26]` -> allowed, where it was previously
+  blocked; `[24]` -> rejected (fewer than two majors).
+- esbuild floor mutations: 0.28.2 and 0.29.0 -> allowed, where any change was
+  previously blocked; 0.28.0 -> rejected, so the reviewed fix cannot regress.
+
+### Notes
+
+- Node 26 is deliberately not added: it becomes LTS on 2026-10-28. The floor
+  permits it whenever that is wanted, without another contract edit.
+
+### Files changed
+
+- `.github/workflows/check.yml` — supported Node matrix.
+- `scripts/check-baseline.sh` — Node floor and esbuild floor.
+
 ## 2026-06-26 12:05 PDT - P1 - Restore deployed file-support analysis
 
 - **Priority:** P1 correctness; the full analyzer always requested bundled

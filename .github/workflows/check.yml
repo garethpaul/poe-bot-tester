@@ -27,4 +27,11 @@ jobs:
           node-version: ${{ matrix.node-version }}
           cache: npm
       - run: npm ci
+      # Out-of-band observers. These invoke the checkers DIRECTLY so that their exit
+      # status reaches the job even if a Makefile recipe swallows it (e.g. `|| true`).
+      # A checker that only ever runs inside `make check` cannot report a neutered
+      # `make check`, because it is downstream of the recipe it is meant to police.
+      # Keep these as separate steps; do not fold them into `make check`.
+      - run: scripts/check-baseline.sh
+      - run: node scripts/test-makefile-root.mjs
       - run: make check

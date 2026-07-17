@@ -141,6 +141,57 @@ async function runRequestBodyAssertions() {
   assert.equal(exactLimitResult.ok, true);
 }
 
+// Every fixture above is expressed relative to MAX_JSON_BODY_BYTES, so widening the
+// constant silently widens the fixtures with it and nothing fails. These assertions
+// use LITERAL byte counts, so they hold the limit at the 64 KiB the docs promise and
+// fail if the constant moves in either direction.
+const LITERAL_MAX_JSON_BODY_BYTES = 65536;
+
+async function runLiteralBodyLimitBoundaryAssertion(): Promise<void> {
+  assert.equal(MAX_JSON_BODY_BYTES, LITERAL_MAX_JSON_BODY_BYTES);
+
+  // 65537 declared bytes is over the documented limit and must be rejected.
+  const literalOversizedResult = await parseJsonObject({
+    headers: new Headers({ 'content-length': '65537' }),
+    body: null,
+  } as unknown as Pick<Request, 'body' | 'headers'>);
+  assert.equal(literalOversizedResult.ok, false);
+  assert.equal(
+    literalOversizedResult.ok === false ? literalOversizedResult.reason : null,
+    'too_large'
+  );
+
+  // A literal 65537-byte streamed body must also be rejected on the read path.
+  const literalOversizedStream = new ReadableStream<Uint8Array>({
+    start(controller) {
+      controller.enqueue(new TextEncoder().encode('x'.repeat(65537)));
+      controller.close();
+    },
+  });
+  const literalStreamResult = await parseJsonObject(
+    { headers: new Headers(), body: literalOversizedStream } as unknown as Pick<
+      Request,
+      'body' | 'headers'
+    >
+  );
+  assert.equal(literalStreamResult.ok, false);
+  assert.equal(
+    literalStreamResult.ok === false ? literalStreamResult.reason : null,
+    'too_large'
+  );
+
+  // 65536 declared bytes is exactly at the documented limit and must be accepted.
+  const literalAtLimitResult = await parseJsonObject({
+    headers: new Headers({ 'content-length': '65536' }),
+    body: null,
+  } as unknown as Pick<Request, 'body' | 'headers'>);
+  assert.equal(literalAtLimitResult.ok, false);
+  assert.equal(
+    literalAtLimitResult.ok === false ? literalAtLimitResult.reason : null,
+    'invalid'
+  );
+}
+
 const sampleHtml = `
 <!doctype html>
 <html>
@@ -1030,6 +1081,7 @@ async function runTestBotTransportFailureAssertions() {
 
 async function main() {
   await runRequestBodyAssertions();
+  await runLiteralBodyLimitBoundaryAssertion();
   await runRouteAssertions();
   await runChunkSessionBotBindingAssertion();
   await runChunkSessionConcurrencyAssertion();

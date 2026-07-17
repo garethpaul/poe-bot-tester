@@ -89,9 +89,18 @@ try {
   const logger =
     "#!/bin/sh\n" +
     "printf '%s|%s\\n' \"$PWD\" \"$*\" >> \"$POE_BOT_COMMAND_LOG\"\n";
-  writeExecutable(path.join(fakeBin, "npm"), logger);
-  writeExecutable(path.join(fakeBin, "node"), logger);
-  writeExecutable(path.join(checkout, "scripts", "check-baseline.sh"), logger);
+  const failingLogger = `${logger}exit 1\n`;
+  const COMMAND_PATHS = {
+    npm: path.join(fakeBin, "npm"),
+    node: path.join(fakeBin, "node"),
+    "scripts/check-baseline.sh": path.join(checkout, "scripts", "check-baseline.sh"),
+  };
+  const installPassingCommands = () => {
+    for (const commandPath of Object.values(COMMAND_PATHS)) {
+      writeExecutable(commandPath, logger);
+    }
+  };
+  installPassingCommands();
   const fakeShell = path.join(temporaryRoot, "fake-shell");
   writeExecutable(
     fakeShell,
@@ -132,6 +141,46 @@ try {
       );
     }
   }
+
+  // The loop above proves each target DISPATCHES a command from the checkout. It
+  // cannot prove the target GATES on that command: a recipe ending in `|| true`
+  // dispatches identically and still exits 0, so the dispatch log is byte-identical
+  // either way. Inject a failure into one dispatched command at a time and require
+  // the failure to reach `make`'s exit status.
+  const FAILURE_INJECTIONS = [
+    ["npm", ["lint", "typecheck", "test", "build", "audit", "verify", "check"]],
+    ["node", ["root-test", "verify", "check"]],
+    ["scripts/check-baseline.sh", ["check"]],
+  ];
+
+  let injectedCases = 0;
+  for (const [command, targets] of FAILURE_INJECTIONS) {
+    for (const target of targets) {
+      installPassingCommands();
+      writeExecutable(COMMAND_PATHS[command], failingLogger);
+      rmSync(commandLog, { force: true });
+      const result = runMake(
+        [makefile],
+        target,
+        [],
+        makeEnvironment(fakeBin, commandLog),
+        controlDirectory,
+      );
+      assert.notEqual(
+        result.status,
+        0,
+        `make ${target} ignored a failing ${command}; the recipe must not swallow its ` +
+          `exit status:\n${combinedOutput(result)}`,
+      );
+      assert.ok(
+        existsSync(commandLog),
+        `make ${target} never dispatched ${command}, so its failure was not observed`,
+      );
+      injectedCases += 1;
+    }
+  }
+  installPassingCommands();
+  assert.equal(injectedCases, 11, "expected 11 per-command failure-injection cases");
 
   for (const marker of ["POE_BOT_BACKTICK_MARKER"]) {
     assert.ok(
@@ -204,6 +253,7 @@ try {
 
   console.log(
     "Makefile root tests passed: 88 executed target/authority cases, " +
+      "11 per-command failure-injection cases, " +
       "2 MAKEFILE_LIST rejections, 1 MAKEFILES rejection, and 1 multi-Makefile rejection",
   );
 } finally {

@@ -463,6 +463,37 @@ for workflow_value in \
   fi
 done
 
+# "run: make check" is a substring of "run: make check || true", so the pin above
+# cannot tell a gating CI step from a decorative one. Pin every run step WHOLE, and
+# require the direct observer steps that give the checkers an exit-status channel
+# independent of the Makefile.
+require_exact_workflow_line() {
+  if ! grep -Fxq "$1" "$CI_WORKFLOW"; then
+    printf '%s\n' "GitHub Actions workflow step must match exactly, with no status-swallowing suffix: $1" >&2
+    exit 1
+  fi
+}
+
+require_exact_workflow_line '      - run: npm ci'
+require_exact_workflow_line '      - run: scripts/check-baseline.sh'
+require_exact_workflow_line '      - run: node scripts/test-makefile-root.mjs'
+require_exact_workflow_line '      - run: make check'
+
+# The whole-line pins above prove the four gating steps are present and unsuffixed.
+# Also require that they are the ONLY run steps, so no extra step can be introduced
+# to shadow them and no pinned step can be duplicated in a swallowed form.
+actual_run_steps=$(grep -E '^[[:space:]]*- run:' "$CI_WORKFLOW")
+expected_run_steps='      - run: npm ci
+      - run: scripts/check-baseline.sh
+      - run: node scripts/test-makefile-root.mjs
+      - run: make check'
+if [ "$actual_run_steps" != "$expected_run_steps" ]; then
+  printf '%s\n%s\n\n%s\n%s\n' \
+    "GitHub Actions run steps must be exactly the four gating steps, in order. Expected:" \
+    "$expected_run_steps" "Found:" "$actual_run_steps" >&2
+  exit 1
+fi
+
 if [ "$(grep -Ec '^[[:space:]]*- uses: actions/checkout@' "$CI_WORKFLOW")" -ne 1 ] ||
   [ "$(grep -Ec '^[[:space:]]*- uses: actions/setup-node@' "$CI_WORKFLOW")" -ne 1 ] ||
   [ "$(grep -Fc 'persist-credentials:' "$CI_WORKFLOW")" -ne 1 ] ||
@@ -523,6 +554,36 @@ for make_contract in \
   fi
 done
 
+# The substring pins above cannot see a suffix: 'cd "$REPO_ROOT" && $(NPM) run lint'
+# is a prefix of that same line with '|| true' appended, and "check:" is a substring
+# of itself with its prerequisites stripped. Both mutations keep every pin above
+# green while disarming the gate. Match each rule and recipe line WHOLE instead.
+TAB=$(printf '\t')
+
+require_exact_make_line() {
+  if ! grep -Fxq "$1" "$MAKEFILE"; then
+    printf '%s\n' "Makefile line must match exactly, with no appended suffix and no dropped prerequisite: $1" >&2
+    exit 1
+  fi
+}
+
+require_exact_make_line 'lint:'
+require_exact_make_line "$TAB"'cd "$$REPO_ROOT" && $(NPM) run lint'
+require_exact_make_line 'typecheck:'
+require_exact_make_line "$TAB"'cd "$$REPO_ROOT" && $(NPM) run typecheck'
+require_exact_make_line 'test:'
+require_exact_make_line "$TAB"'cd "$$REPO_ROOT" && $(NPM) test'
+require_exact_make_line 'build:'
+require_exact_make_line "$TAB"'cd "$$REPO_ROOT" && $(NPM) run build'
+require_exact_make_line 'audit:'
+require_exact_make_line "$TAB"'cd "$$REPO_ROOT" && $(NPM) run audit'
+require_exact_make_line 'root-test:'
+require_exact_make_line "$TAB"'cd "$$REPO_ROOT" && $(NODE) scripts/test-makefile-root.mjs'
+require_exact_make_line 'verify: root-test'
+require_exact_make_line "$TAB"'cd "$$REPO_ROOT" && $(NPM) run verify'
+require_exact_make_line 'check: verify'
+require_exact_make_line "$TAB"'cd "$$REPO_ROOT" && scripts/check-baseline.sh'
+
 for root_test_contract in \
   'const TARGETS = [' \
   'command REPO_ROOT override' \
@@ -537,7 +598,12 @@ for root_test_contract in \
   'environment MAKEFILE_LIST override' \
   '88 executed target/authority cases' \
   '1 MAKEFILES rejection' \
-  '1 multi-Makefile rejection'; do
+  '1 multi-Makefile rejection' \
+  'const FAILURE_INJECTIONS = [' \
+  'const failingLogger = `${logger}exit 1\n`;' \
+  'ignored a failing ${command}; the recipe must not swallow its ' \
+  'assert.equal(injectedCases, 11' \
+  '11 per-command failure-injection cases'; do
   if ! grep -Fq "$root_test_contract" "$ROOT_DIR/scripts/test-makefile-root.mjs"; then
     printf '%s\n' "Makefile root test must preserve: $root_test_contract" >&2
     exit 1
@@ -806,6 +872,35 @@ done
 
 if grep -Fq "request.json()" "$REQUEST_BODY"; then
   printf '%s\n' "request-body.ts must enforce the byte limit before JSON parsing." >&2
+  exit 1
+fi
+
+# "export const MAX_JSON_BODY_BYTES = 64 * 1024" is a substring of "... = 64 * 1024 * 16",
+# so the pin above cannot detect a widened limit by appending. Match the line WHOLE.
+# The documented limit is 64 KiB in README/SECURITY/VISION/CHANGES; a silently widened
+# constant would make every one of those documents false while this script stayed green.
+if ! grep -Fxq "export const MAX_JSON_BODY_BYTES = 64 * 1024;" "$REQUEST_BODY"; then
+  printf '%s\n' "request-body.ts must pin the documented 64 KiB limit exactly: export const MAX_JSON_BODY_BYTES = 64 * 1024;" >&2
+  exit 1
+fi
+
+# Every oversize fixture in the suite is written relative to MAX_JSON_BODY_BYTES
+# (MAX + 1, MAX - 12), so all of them move with the constant and none of them fails
+# when the limit is widened. Require literal-valued boundary coverage that stays put.
+for literal_bound_test in \
+  'const LITERAL_MAX_JSON_BODY_BYTES = 65536;' \
+  'assert.equal(MAX_JSON_BODY_BYTES, LITERAL_MAX_JSON_BODY_BYTES);' \
+  'runLiteralBodyLimitBoundaryAssertion' \
+  "'x'.repeat(65537)" \
+  'assert.equal(literalOversizedResult.ok, false);'; do
+  if ! grep -Fq "$literal_bound_test" "$ROUTE_TESTS"; then
+    printf '%s\n' "route tests must pin the JSON body limit to literal bytes, not to the constant under test: $literal_bound_test" >&2
+    exit 1
+  fi
+done
+
+if [ "$(grep -Fc 'runLiteralBodyLimitBoundaryAssertion' "$ROUTE_TESTS")" -ne 2 ]; then
+  printf '%s\n' 'Literal JSON body limit boundary coverage must retain one definition and one invocation.' >&2
   exit 1
 fi
 
